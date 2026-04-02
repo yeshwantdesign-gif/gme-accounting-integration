@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Save, Trash2, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Save, Trash2, X, ChevronDown } from "lucide-react";
 
 interface BSMappingFormProps {
   type: "bs";
@@ -45,6 +45,88 @@ interface PLMappingFormProps {
 type MappingFormProps = BSMappingFormProps | PLMappingFormProps;
 
 const currencies = ["KRW", "USD", "NPR", "THB", "JPY", "PHP", "VND", "BDT", "EUR", "GBP", "IDR", "CNY", "KHR", "MNT", "MMK", "LKR", "PKR", "INR"];
+
+function DeptDropdown({
+  deptSearch,
+  setDeptSearch,
+  showDeptDropdown,
+  setShowDeptDropdown,
+  filteredDepts,
+  onSelect,
+}: {
+  deptSearch: string;
+  setDeptSearch: (v: string) => void;
+  showDeptDropdown: boolean;
+  setShowDeptDropdown: (v: boolean) => void;
+  filteredDepts: { code: string; name: string; level: string }[];
+  onSelect: (dept: { code: string; name: string }) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showDeptDropdown) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDeptDropdown(false);
+      }
+    };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowDeptDropdown(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showDeptDropdown, setShowDeptDropdown]);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <label className="block text-xs font-medium text-slate-600 mb-1">
+        Department * <span className="text-red-500">(Required for PL)</span>
+      </label>
+      <div className="relative">
+        <input
+          type="text"
+          value={deptSearch}
+          onChange={(e) => {
+            setDeptSearch(e.target.value);
+            setShowDeptDropdown(true);
+          }}
+          onClick={() => setShowDeptDropdown(!showDeptDropdown)}
+          className="w-full px-3 py-2 pr-8 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Search department..."
+        />
+        <ChevronDown
+          size={16}
+          className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none transition-transform ${
+            showDeptDropdown ? "rotate-180" : ""
+          }`}
+        />
+      </div>
+      {showDeptDropdown && filteredDepts.length > 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+          {filteredDepts.slice(0, 20).map((dept) => (
+            <button
+              key={dept.code}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between"
+              onClick={() => onSelect(dept)}
+            >
+              <span>
+                <span className="font-mono text-xs text-slate-500">{dept.code}</span>{" "}
+                {dept.name}
+              </span>
+              <span className="text-xs text-slate-400">{dept.level}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function MappingForm(props: MappingFormProps) {
   const [amaranthCode, setAmaranthCode] = useState("");
@@ -184,44 +266,19 @@ export default function MappingForm(props: MappingFormProps) {
           </div>
         </>
       ) : (
-        <div className="relative">
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Department * <span className="text-red-500">(Required for PL)</span>
-          </label>
-          <input
-            type="text"
-            value={deptSearch}
-            onChange={(e) => {
-              setDeptSearch(e.target.value);
-              setShowDeptDropdown(true);
-            }}
-            onFocus={() => setShowDeptDropdown(true)}
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Search department..."
-          />
-          {showDeptDropdown && filteredDepts.length > 0 && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-              {filteredDepts.slice(0, 20).map((dept) => (
-                <button
-                  key={dept.code}
-                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center justify-between"
-                  onClick={() => {
-                    setDepartmentCode(dept.code);
-                    setDepartmentName(dept.name);
-                    setDeptSearch(`${dept.code} - ${dept.name}`);
-                    setShowDeptDropdown(false);
-                  }}
-                >
-                  <span>
-                    <span className="font-mono text-xs text-slate-500">{dept.code}</span>{" "}
-                    {dept.name}
-                  </span>
-                  <span className="text-xs text-slate-400">{dept.level}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <DeptDropdown
+          deptSearch={deptSearch}
+          setDeptSearch={setDeptSearch}
+          showDeptDropdown={showDeptDropdown}
+          setShowDeptDropdown={setShowDeptDropdown}
+          filteredDepts={filteredDepts}
+          onSelect={(dept) => {
+            setDepartmentCode(dept.code);
+            setDepartmentName(dept.name);
+            setDeptSearch(`${dept.code} - ${dept.name}`);
+            setShowDeptDropdown(false);
+          }}
+        />
       )}
 
       <div className="flex gap-2 pt-2">
