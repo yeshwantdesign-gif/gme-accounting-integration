@@ -10,6 +10,7 @@ import {
   plIntegrationData as initialPlData,
 } from "../../data/integrationHistory";
 import type { BSIntegrationEntry, PLIntegrationEntry } from "../../types";
+import { calculateDrCr } from "../../utils/drCrCalculator";
 import { Download, Play, Loader2 } from "lucide-react";
 
 export default function AutoIntegrationPage() {
@@ -45,40 +46,126 @@ export default function AutoIntegrationPage() {
     }, 1500);
   };
 
+  // Display data: Gross passes raw data, Net computes netted entries
+  const displayBsData = useMemo(() => {
+    if (method === "gross") return bsData;
+
+    const groups = new Map<string, BSIntegrationEntry[]>();
+    bsData.forEach((entry) => {
+      const key = `${entry.amaranthCode}|${entry.vendorCode}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(entry);
+    });
+
+    return Array.from(groups.values()).map((entries): BSIntegrationEntry => {
+      const first = entries[0];
+      const netDeltaKrw = entries.reduce((sum, e) => sum + e.deltaKrw, 0);
+      const netDeltaFcy = entries.reduce((sum, e) => sum + e.deltaFcy, 0);
+      const sameCurrency = entries.every((e) => e.currency === first.currency);
+      const { drCr } = calculateDrCr(first.accountNature, netDeltaKrw, true);
+
+      return {
+        amaranthCode: first.amaranthCode,
+        amaranthName: first.amaranthName,
+        vendorCode: first.vendorCode,
+        vendorName: first.vendorName,
+        currency: sameCurrency ? first.currency : "MULTI",
+        coreFcyBalance: sameCurrency ? entries.reduce((s, e) => s + e.coreFcyBalance, 0) : 0,
+        coreKrwBalance: entries.reduce((s, e) => s + e.coreKrwBalance, 0),
+        amaranthFcyBalance: sameCurrency ? entries.reduce((s, e) => s + e.amaranthFcyBalance, 0) : 0,
+        amaranthKrwBalance: entries.reduce((s, e) => s + e.amaranthKrwBalance, 0),
+        deltaFcy: sameCurrency ? netDeltaFcy : 0,
+        deltaKrw: netDeltaKrw,
+        drCr,
+        accountNature: first.accountNature,
+        selected: entries.every((e) => e.selected),
+      };
+    });
+  }, [bsData, method]);
+
+  const displayPlData = useMemo(() => {
+    if (method === "gross") return plData;
+
+    const groups = new Map<string, PLIntegrationEntry[]>();
+    plData.forEach((entry) => {
+      const key = `${entry.amaranthCode}|${entry.deptCode}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(entry);
+    });
+
+    return Array.from(groups.values()).map((entries): PLIntegrationEntry => {
+      const first = entries[0];
+      const netDeltaKrw = entries.reduce((sum, e) => sum + e.deltaKrw, 0);
+      const { drCr } = calculateDrCr(first.accountNature, netDeltaKrw, false);
+
+      return {
+        amaranthCode: first.amaranthCode,
+        amaranthName: first.amaranthName,
+        deptCode: first.deptCode,
+        deptName: first.deptName,
+        coreKrwBalance: entries.reduce((s, e) => s + e.coreKrwBalance, 0),
+        amaranthKrwBalance: entries.reduce((s, e) => s + e.amaranthKrwBalance, 0),
+        deltaKrw: netDeltaKrw,
+        drCr,
+        accountNature: first.accountNature,
+        selected: entries.every((e) => e.selected),
+      };
+    });
+  }, [plData, method]);
+
   const toggleBs = (index: number) => {
-    setBsData((prev) =>
-      prev.map((d, i) => (i === index ? { ...d, selected: !d.selected } : d))
-    );
+    if (method === "gross") {
+      setBsData((prev) =>
+        prev.map((d, i) => (i === index ? { ...d, selected: !d.selected } : d))
+      );
+    } else {
+      const entry = displayBsData[index];
+      const key = `${entry.amaranthCode}|${entry.vendorCode}`;
+      const newSelected = !entry.selected;
+      setBsData((prev) =>
+        prev.map((d) =>
+          `${d.amaranthCode}|${d.vendorCode}` === key
+            ? { ...d, selected: newSelected }
+            : d
+        )
+      );
+    }
   };
 
   const togglePl = (index: number) => {
-    setPlData((prev) =>
-      prev.map((d, i) => (i === index ? { ...d, selected: !d.selected } : d))
-    );
+    if (method === "gross") {
+      setPlData((prev) =>
+        prev.map((d, i) => (i === index ? { ...d, selected: !d.selected } : d))
+      );
+    } else {
+      const entry = displayPlData[index];
+      const key = `${entry.amaranthCode}|${entry.deptCode}`;
+      const newSelected = !entry.selected;
+      setPlData((prev) =>
+        prev.map((d) =>
+          `${d.amaranthCode}|${d.deptCode}` === key
+            ? { ...d, selected: newSelected }
+            : d
+        )
+      );
+    }
   };
 
-  const currentData = activeTab === "bs" ? bsData : plData;
+  const currentData = activeTab === "bs" ? displayBsData : displayPlData;
   const selectedData = activeTab === "bs"
-    ? bsData.filter((d) => d.selected)
-    : plData.filter((d) => d.selected);
+    ? displayBsData.filter((d) => d.selected)
+    : displayPlData.filter((d) => d.selected);
 
   const summary = useMemo(() => {
     let totalDr = 0;
     let totalCr = 0;
 
-    if (activeTab === "bs") {
-      bsData.filter((d) => d.selected).forEach((d) => {
-        const amount = Math.abs(d.deltaKrw);
-        if (d.drCr === 3) totalDr += amount;
-        else totalCr += amount;
-      });
-    } else {
-      plData.filter((d) => d.selected).forEach((d) => {
-        const amount = Math.abs(d.deltaKrw);
-        if (d.drCr === 3) totalDr += amount;
-        else totalCr += amount;
-      });
-    }
+    const data = activeTab === "bs" ? displayBsData : displayPlData;
+    data.filter((d) => d.selected).forEach((d) => {
+      const amount = Math.abs(d.deltaKrw);
+      if (d.drCr === 3) totalDr += amount;
+      else totalCr += amount;
+    });
 
     return {
       totalDr,
@@ -87,7 +174,7 @@ export default function AutoIntegrationPage() {
       entryCount: currentData.length,
       selectedCount: selectedData.length,
     };
-  }, [activeTab, bsData, plData, currentData, selectedData]);
+  }, [activeTab, displayBsData, displayPlData, currentData, selectedData]);
 
   const handleExecute = () => {
     setModalMode("confirm");
@@ -234,9 +321,9 @@ export default function AutoIntegrationPage() {
         {fetched && !loading && (
           <>
             {activeTab === "bs" ? (
-              <IntegrationTable type="bs" data={bsData} onToggle={toggleBs} />
+              <IntegrationTable type="bs" data={displayBsData} onToggle={toggleBs} />
             ) : (
-              <IntegrationTable type="pl" data={plData} onToggle={togglePl} />
+              <IntegrationTable type="pl" data={displayPlData} onToggle={togglePl} />
             )}
 
             {/* Execute button */}

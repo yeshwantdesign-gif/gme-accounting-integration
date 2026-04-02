@@ -35,10 +35,14 @@ export function calculateDrCr(
   }
 
   // PL ACCOUNTS (Revenue, Expense)
+  // Unlike BS, PL accounts NEVER flip DR/CR side.
+  // Negative deltas are posted as negative amounts on the same side.
   if (accountNature === "Revenue") {
+    // Revenue → ALWAYS CR (4), even if delta is negative
     return { drCr: 4, amount: deltaKrw };
   }
   if (accountNature === "Expense") {
+    // Expense → ALWAYS DR (3), even if delta is negative
     return { drCr: 3, amount: deltaKrw };
   }
 
