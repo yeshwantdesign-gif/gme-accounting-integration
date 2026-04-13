@@ -40,6 +40,7 @@ export const integrationHistory: IntegrationHistoryEntry[] = [
 ];
 
 export const bsIntegrationData: BSIntegrationEntry[] = [
+  // --- Kasikornbank THB: 2 entries, same account+vendor+currency → nettable ---
   {
     amaranthCode: "12600002",
     amaranthName: "예치금(소액해외송금 해외협력사)",
@@ -48,11 +49,44 @@ export const bsIntegrationData: BSIntegrationEntry[] = [
     currency: "THB",
     coreFcyBalance: 15682941.0,
     coreKrwBalance: 730206340.88,
-    amaranthFcyBalance: 105972008.0,
-    amaranthKrwBalance: 4914185582.0,
-    deltaFcy: -90289067.0,
-    deltaKrw: -4183979241.12,
+    amaranthFcyBalance: 10500000.0,
+    amaranthKrwBalance: 489000000.0,
+    deltaFcy: 5182941.0,
+    deltaKrw: 241206340.88,
+    drCr: 3,
+    accountNature: "Asset",
+    selected: true,
+  },
+  {
+    amaranthCode: "12600002",
+    amaranthName: "예치금(소액해외송금 해외협력사)",
+    vendorCode: "00105",
+    vendorName: "Kasikornbank",
+    currency: "THB",
+    coreFcyBalance: 8200000.0,
+    coreKrwBalance: 382000000.0,
+    amaranthFcyBalance: 12400000.0,
+    amaranthKrwBalance: 578000000.0,
+    deltaFcy: -4200000.0,
+    deltaKrw: -196000000.0,
     drCr: 4,
+    accountNature: "Asset",
+    selected: true,
+  },
+  // --- IME Ltd NPR: 2 entries, same account+vendor+currency → nettable ---
+  {
+    amaranthCode: "12600002",
+    amaranthName: "예치금(소액해외송금 해외협력사)",
+    vendorCode: "00003",
+    vendorName: "IME Ltd",
+    currency: "NPR",
+    coreFcyBalance: 406591649.03,
+    coreKrwBalance: 3997251002.29,
+    amaranthFcyBalance: 350000000.0,
+    amaranthKrwBalance: 3440000000.0,
+    deltaFcy: 56591649.03,
+    deltaKrw: 557251002.29,
+    drCr: 3,
     accountNature: "Asset",
     selected: true,
   },
@@ -62,16 +96,17 @@ export const bsIntegrationData: BSIntegrationEntry[] = [
     vendorCode: "00003",
     vendorName: "IME Ltd",
     currency: "NPR",
-    coreFcyBalance: 406591649.03,
-    coreKrwBalance: 3997251002.29,
-    amaranthFcyBalance: 4904656940.03,
-    amaranthKrwBalance: 48764214420.0,
-    deltaFcy: -4498065291.0,
-    deltaKrw: -44766963417.71,
+    coreFcyBalance: 120000000.0,
+    coreKrwBalance: 1180000000.0,
+    amaranthFcyBalance: 250000000.0,
+    amaranthKrwBalance: 2460000000.0,
+    deltaFcy: -130000000.0,
+    deltaKrw: -1280000000.0,
     drCr: 4,
     accountNature: "Asset",
     selected: true,
   },
+  // --- IME Ltd USD: single entry, no netting partner ---
   {
     amaranthCode: "12600002",
     amaranthName: "예치금(소액해외송금 해외협력사)",
@@ -88,6 +123,7 @@ export const bsIntegrationData: BSIntegrationEntry[] = [
     accountNature: "Asset",
     selected: true,
   },
+  // --- BC Card KRW: 2 entries, same account+vendor+currency → nettable ---
   {
     amaranthCode: "2530001",
     amaranthName: "미지급금",
@@ -104,21 +140,51 @@ export const bsIntegrationData: BSIntegrationEntry[] = [
     accountNature: "Liability",
     selected: true,
   },
+  {
+    amaranthCode: "2530001",
+    amaranthName: "미지급금",
+    vendorCode: "VND-BC",
+    vendorName: "BC Card",
+    currency: "KRW",
+    coreFcyBalance: 0,
+    coreKrwBalance: 82000000,
+    amaranthFcyBalance: 0,
+    amaranthKrwBalance: 90000000,
+    deltaFcy: 0,
+    deltaKrw: -8000000,
+    drCr: 3,
+    accountNature: "Liability",
+    selected: true,
+  },
 ];
 
 export const plIntegrationData: PLIntegrationEntry[] = [
+  // --- Remittance Revenue: 2 entries, same account+dept → nettable ---
   {
     amaranthCode: "4010001",
     amaranthName: "소액해외송금 당발송금 수익 (개인)",
     deptCode: "211000",
     deptName: "Remittance",
     coreKrwBalance: 1284921880.0,
-    amaranthKrwBalance: 0,
-    deltaKrw: 1284921880.0,
+    amaranthKrwBalance: 900000000,
+    deltaKrw: 384921880.0,
     drCr: 4,
     accountNature: "Revenue",
     selected: true,
   },
+  {
+    amaranthCode: "4010001",
+    amaranthName: "소액해외송금 당발송금 수익 (개인)",
+    deptCode: "211000",
+    deptName: "Remittance",
+    coreKrwBalance: 520000000,
+    amaranthKrwBalance: 680000000,
+    deltaKrw: -160000000,
+    drCr: 4,
+    accountNature: "Revenue",
+    selected: true,
+  },
+  // --- Partner fee expense: 2 entries, same account+dept → nettable ---
   {
     amaranthCode: "8540001",
     amaranthName: "소액해외송금 해외협력사수수료 비용",
@@ -126,11 +192,24 @@ export const plIntegrationData: PLIntegrationEntry[] = [
     deptName: "Remittance",
     coreKrwBalance: 966622742.4,
     amaranthKrwBalance: 11588338.0,
-    deltaKrw: 978211080.4,
+    deltaKrw: 955034404.4,
     drCr: 3,
     accountNature: "Expense",
     selected: true,
   },
+  {
+    amaranthCode: "8540001",
+    amaranthName: "소액해외송금 해외협력사수수료 비용",
+    deptCode: "211000",
+    deptName: "Remittance",
+    coreKrwBalance: 150000000,
+    amaranthKrwBalance: 280000000,
+    deltaKrw: -130000000,
+    drCr: 3,
+    accountNature: "Expense",
+    selected: true,
+  },
+  // --- Salary: single entry, no netting partner ---
   {
     amaranthCode: "8010001",
     amaranthName: "급여",
@@ -143,6 +222,7 @@ export const plIntegrationData: PLIntegrationEntry[] = [
     accountNature: "Expense",
     selected: true,
   },
+  // --- Interest income: single entry ---
   {
     amaranthCode: "4050001",
     amaranthName: "이자수익",
@@ -158,6 +238,7 @@ export const plIntegrationData: PLIntegrationEntry[] = [
 ];
 
 export const manualBsIntegrationData: BSIntegrationEntry[] = [
+  // --- KEB Hana Bank KRW: 2 entries, same account+vendor+currency → nettable ---
   {
     amaranthCode: "11000001",
     amaranthName: "보통예금(KRW)",
@@ -190,6 +271,7 @@ export const manualBsIntegrationData: BSIntegrationEntry[] = [
     accountNature: "Asset",
     selected: true,
   },
+  // --- Wings USD: 2 entries, same account+vendor+currency → nettable ---
   {
     amaranthCode: "12600002",
     amaranthName: "예치금(소액해외송금 해외협력사)",
@@ -206,6 +288,23 @@ export const manualBsIntegrationData: BSIntegrationEntry[] = [
     accountNature: "Asset",
     selected: true,
   },
+  {
+    amaranthCode: "12600002",
+    amaranthName: "예치금(소액해외송금 해외협력사)",
+    vendorCode: "00210",
+    vendorName: "Wings Money Transfer",
+    currency: "USD",
+    coreFcyBalance: 8000,
+    coreKrwBalance: 11200000,
+    amaranthFcyBalance: 12000,
+    amaranthKrwBalance: 16800000,
+    deltaFcy: -4000,
+    deltaKrw: -5600000,
+    drCr: 4,
+    accountNature: "Asset",
+    selected: true,
+  },
+  // --- Express Remit KRW: single entry ---
   {
     amaranthCode: "2530001",
     amaranthName: "미지급금",
@@ -225,6 +324,7 @@ export const manualBsIntegrationData: BSIntegrationEntry[] = [
 ];
 
 export const manualPlIntegrationData: PLIntegrationEntry[] = [
+  // --- Rental expense: 2 entries, same account+dept → nettable ---
   {
     amaranthCode: "8130001",
     amaranthName: "임차료",
@@ -249,6 +349,7 @@ export const manualPlIntegrationData: PLIntegrationEntry[] = [
     accountNature: "Expense",
     selected: true,
   },
+  // --- Remittance revenue: 2 entries, same account+dept → nettable ---
   {
     amaranthCode: "4010001",
     amaranthName: "소액해외송금 당발송금 수익 (개인)",
@@ -257,6 +358,18 @@ export const manualPlIntegrationData: PLIntegrationEntry[] = [
     coreKrwBalance: 45000000,
     amaranthKrwBalance: 40000000,
     deltaKrw: 5000000,
+    drCr: 4,
+    accountNature: "Revenue",
+    selected: true,
+  },
+  {
+    amaranthCode: "4010001",
+    amaranthName: "소액해외송금 당발송금 수익 (개인)",
+    deptCode: "211000",
+    deptName: "Remittance",
+    coreKrwBalance: 18000000,
+    amaranthKrwBalance: 22000000,
+    deltaKrw: -4000000,
     drCr: 4,
     accountNature: "Revenue",
     selected: true,
