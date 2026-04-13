@@ -4,13 +4,14 @@ import SearchInput from "../common/SearchInput";
 import FilterDropdown from "../common/FilterDropdown";
 import LedgerList from "./LedgerList";
 import MappingForm from "./MappingForm";
+import Modal from "../common/Modal";
 import ToastContainer from "../common/Toast";
 import type { ToastData } from "../common/Toast";
 import { plCoreLedgers } from "../../data/plLedgers";
 import { plMappings as initialPlMappings } from "../../data/mappings";
 import { departments } from "../../data/departments";
 import type { PLMapping, PLCategory, MappingStatus } from "../../types";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, RefreshCw, EyeOff, Eye, Loader2 } from "lucide-react";
 
 const categoryOptions = [
   { value: "All", label: "All Categories" },
@@ -27,6 +28,10 @@ export default function PLMappingPage() {
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [mappings, setMappings] = useState<PLMapping[]>(initialPlMappings);
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [excludedCodes, setExcludedCodes] = useState<Set<string>>(new Set());
+  const [showExcluded, setShowExcluded] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [includeModalOpen, setIncludeModalOpen] = useState(false);
 
   const addToast = useCallback((type: ToastData["type"], message: string) => {
     const id = Date.now().toString();
@@ -45,19 +50,19 @@ export default function PLMappingPage() {
         l.name.toLowerCase().includes(search.toLowerCase());
       const matchesCategory =
         category === "All" || l.category === (category as PLCategory);
-      return matchesSearch && matchesCategory;
+      const matchesExcluded = showExcluded || !excludedCodes.has(l.code);
+      return matchesSearch && matchesCategory && matchesExcluded;
     });
-  }, [search, category]);
+  }, [search, category, excludedCodes, showExcluded]);
 
   const getMappingStatus = useCallback(
     (code: string): MappingStatus => {
+      if (excludedCodes.has(code)) return "Excluded";
       const mapped = mappings.some((m) => m.coreLedgerCode === code);
       if (mapped) return "Mapped";
-      const ledger = plCoreLedgers.find((l) => l.code === code);
-      if (ledger?.glCode === "148") return "Excluded";
       return "Unmapped";
     },
-    [mappings]
+    [mappings, excludedCodes]
   );
 
   const existingMapping = useMemo(() => {
@@ -97,16 +102,24 @@ export default function PLMappingPage() {
       ];
     });
     addToast("success", "PL mapping saved");
+    setSelectedCode(null);
   };
 
   const handleClear = () => {
+    if (selectedCode) {
+      const hasMapping = mappings.some((m) => m.coreLedgerCode === selectedCode);
+      if (hasMapping) {
+        setMappings((prev) => prev.filter((m) => m.coreLedgerCode !== selectedCode));
+        addToast("success", "Mapping removed successfully");
+      }
+    }
     setSelectedCode(null);
   };
 
   const handleDelete = () => {
     if (!selectedCode) return;
     setMappings((prev) => prev.filter((m) => m.coreLedgerCode !== selectedCode));
-    addToast("warning", "PL mapping deleted");
+    addToast("success", "Mapping removed successfully");
     setSelectedCode(null);
   };
 
@@ -117,6 +130,41 @@ export default function PLMappingPage() {
   const selectedLedger = selectedCode
     ? plCoreLedgers.find((l) => l.code === selectedCode)
     : null;
+
+  // --- Sync from Core ---
+  const handleSync = () => {
+    setSyncLoading(true);
+    setTimeout(() => {
+      setSyncLoading(false);
+      addToast("success", "Ledger list synced from Core system");
+    }, 1500);
+  };
+
+  // --- Exclude Ledger ---
+  const handleExclude = () => {
+    if (!selectedCode) return;
+    // Remove mapping for excluded code
+    setMappings((prev) => prev.filter((m) => m.coreLedgerCode !== selectedCode));
+    setExcludedCodes((prev) => {
+      const next = new Set(prev);
+      next.add(selectedCode);
+      return next;
+    });
+    addToast("warning", "1 ledger(s) excluded from integration");
+    setSelectedCode(null);
+  };
+
+  // --- Include Ledger ---
+  const handleInclude = (codes: string[]) => {
+    setExcludedCodes((prev) => {
+      const next = new Set(prev);
+      codes.forEach((c) => next.delete(c));
+      return next;
+    });
+    addToast("success", `${codes.length} ledger(s) included back`);
+  };
+
+  const excludedLedgers = plCoreLedgers.filter((l) => excludedCodes.has(l.code));
 
   return (
     <div>
@@ -148,6 +196,15 @@ export default function PLMappingPage() {
                   options={categoryOptions}
                 />
               </div>
+              <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showExcluded}
+                  onChange={(e) => setShowExcluded(e.target.checked)}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                Show Excluded ({excludedCodes.size})
+              </label>
             </div>
 
             <LedgerList
@@ -156,7 +213,44 @@ export default function PLMappingPage() {
               selectedCode={selectedCode}
               onSelect={setSelectedCode}
               getMappingStatus={getMappingStatus}
+              excludedCodes={excludedCodes}
             />
+
+            <div className="p-3 border-t border-slate-200 flex gap-2">
+              <button
+                onClick={handleSync}
+                disabled={syncLoading}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50"
+              >
+                {syncLoading ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={12} />
+                )}
+                Sync from Core
+              </button>
+              <button
+                onClick={handleExclude}
+                disabled={!selectedCode}
+                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded border ${
+                  selectedCode
+                    ? "text-red-600 border-red-300 hover:bg-red-50"
+                    : "text-slate-300 border-slate-200 cursor-not-allowed"
+                }`}
+              >
+                <EyeOff size={12} />
+                Exclude
+              </button>
+              {excludedCodes.size > 0 && (
+                <button
+                  onClick={() => setIncludeModalOpen(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
+                >
+                  <Eye size={12} />
+                  Include ({excludedCodes.size})
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Right Panel */}
@@ -203,6 +297,54 @@ export default function PLMappingPage() {
           </div>
         </div>
       </div>
+
+      {/* Include Ledger Modal */}
+      <Modal open={includeModalOpen} onClose={() => setIncludeModalOpen(false)} title="Excluded Ledgers">
+        <div className="space-y-3">
+          <p className="text-sm text-slate-500">
+            Select ledgers to include back into the mapping list.
+          </p>
+          {excludedLedgers.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 text-center">No excluded ledgers</p>
+          ) : (
+            <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
+              {excludedLedgers.map((ledger) => (
+                <div
+                  key={ledger.code}
+                  className="flex items-center justify-between px-3 py-2 hover:bg-slate-50"
+                >
+                  <div>
+                    <span className="font-mono text-xs text-slate-500">{ledger.code}</span>{" "}
+                    <span className="text-sm text-slate-700">{ledger.name}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleInclude([ledger.code]);
+                      if (excludedCodes.size <= 1) setIncludeModalOpen(false);
+                    }}
+                    className="px-2 py-1 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
+                  >
+                    Include
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {excludedLedgers.length > 1 && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  handleInclude(excludedLedgers.map((l) => l.code));
+                  setIncludeModalOpen(false);
+                }}
+                className="px-3 py-1.5 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
+              >
+                Include All ({excludedLedgers.length})
+              </button>
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

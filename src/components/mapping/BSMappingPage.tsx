@@ -9,8 +9,8 @@ import ToastContainer from "../common/Toast";
 import type { ToastData } from "../common/Toast";
 import { bsCoreLedgers as initialLedgers } from "../../data/bsLedgers";
 import { bsMappings as initialBsMappings } from "../../data/mappings";
-import type { BSMapping, BSCategory, BSCoreLedger, MappingStatus } from "../../types";
-import { AlertTriangle, Plus, Pencil, Trash2 } from "lucide-react";
+import type { BSMapping, BSCategory, MappingStatus } from "../../types";
+import { AlertTriangle, RefreshCw, EyeOff, Eye, Loader2 } from "lucide-react";
 
 const categoryOptions = [
   { value: "All", label: "All Categories" },
@@ -21,52 +21,16 @@ const categoryOptions = [
   { value: "Equity", label: "Equity" },
 ];
 
-const categoryValues: BSCategory[] = [
-  "Current Assets",
-  "Non-Current Assets",
-  "Current Liabilities",
-  "Non-Current Liabilities",
-  "Equity",
-];
-
-const currencies = [
-  "KRW", "USD", "NPR", "THB", "JPY", "PHP", "VND", "BDT", "EUR", "GBP",
-  "IDR", "CNY", "KHR", "MNT", "MMK", "LKR", "PKR", "INR",
-];
-
-interface LedgerFormData {
-  code: string;
-  name: string;
-  glCode: string;
-  glName: string;
-  category: BSCategory;
-  currency: string;
-  balance: string;
-}
-
-const emptyForm: LedgerFormData = {
-  code: "",
-  name: "",
-  glCode: "",
-  glName: "",
-  category: "Current Assets",
-  currency: "KRW",
-  balance: "0",
-};
-
 export default function BSMappingPage() {
-  const [ledgers, setLedgers] = useState<BSCoreLedger[]>([...initialLedgers]);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
   const [mappings, setMappings] = useState<BSMapping[]>(initialBsMappings);
   const [toasts, setToasts] = useState<ToastData[]>([]);
-
-  // Modal state
-  const [addModalOpen, setAddModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [formData, setFormData] = useState<LedgerFormData>(emptyForm);
+  const [excludedCodes, setExcludedCodes] = useState<Set<string>>(new Set());
+  const [showExcluded, setShowExcluded] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [includeModalOpen, setIncludeModalOpen] = useState(false);
 
   const addToast = useCallback((type: ToastData["type"], message: string) => {
     const id = Date.now().toString();
@@ -77,6 +41,8 @@ export default function BSMappingPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
+  const ledgers = initialLedgers;
+
   const filteredLedgers = useMemo(() => {
     return ledgers.filter((l) => {
       const matchesSearch =
@@ -85,19 +51,19 @@ export default function BSMappingPage() {
         l.name.toLowerCase().includes(search.toLowerCase());
       const matchesCategory =
         category === "All" || l.category === (category as BSCategory);
-      return matchesSearch && matchesCategory;
+      const matchesExcluded = showExcluded || !excludedCodes.has(l.code);
+      return matchesSearch && matchesCategory && matchesExcluded;
     });
-  }, [search, category, ledgers]);
+  }, [search, category, ledgers, excludedCodes, showExcluded]);
 
   const getMappingStatus = useCallback(
     (code: string): MappingStatus => {
+      if (excludedCodes.has(code)) return "Excluded";
       const mapped = mappings.some((m) => m.coreLedgerCodes.includes(code));
       if (mapped) return "Mapped";
-      const ledger = ledgers.find((l) => l.code === code);
-      if (ledger?.glCode === "216") return "Excluded";
       return "Unmapped";
     },
-    [mappings, ledgers]
+    [mappings, excludedCodes]
   );
 
   const toggleLedger = (code: string) => {
@@ -138,11 +104,14 @@ export default function BSMappingPage() {
     }
     const codes = Array.from(selectedCodes);
     setMappings((prev) => {
-      const filtered = prev.filter(
-        (m) => !codes.some((c) => m.coreLedgerCodes.includes(c))
-      );
+      const updated = prev
+        .map((m) => ({
+          ...m,
+          coreLedgerCodes: m.coreLedgerCodes.filter((c) => !codes.includes(c)),
+        }))
+        .filter((m) => m.coreLedgerCodes.length > 0);
       return [
-        ...filtered,
+        ...updated,
         {
           coreLedgerCodes: codes,
           amaranthCode: data.amaranthCode,
@@ -154,18 +123,36 @@ export default function BSMappingPage() {
       ];
     });
     addToast("success", `Mapping saved for ${codes.length} ledger(s)`);
+    setSelectedCodes(new Set());
+  };
+
+  const removeMappingsForCodes = (codes: string[]) => {
+    setMappings((prev) =>
+      prev
+        .map((m) => ({
+          ...m,
+          coreLedgerCodes: m.coreLedgerCodes.filter((c) => !codes.includes(c)),
+        }))
+        .filter((m) => m.coreLedgerCodes.length > 0)
+    );
   };
 
   const handleClear = () => {
+    const codes = Array.from(selectedCodes);
+    const hasMappings = mappings.some((m) =>
+      codes.some((c) => m.coreLedgerCodes.includes(c))
+    );
+    if (hasMappings) {
+      removeMappingsForCodes(codes);
+      addToast("success", "Mapping removed successfully");
+    }
     setSelectedCodes(new Set());
   };
 
   const handleDeleteMapping = () => {
     const codes = Array.from(selectedCodes);
-    setMappings((prev) =>
-      prev.filter((m) => !codes.some((c) => m.coreLedgerCodes.includes(c)))
-    );
-    addToast("warning", "Mapping deleted");
+    removeMappingsForCodes(codes);
+    addToast("success", "Mapping removed successfully");
     setSelectedCodes(new Set());
   };
 
@@ -174,187 +161,40 @@ export default function BSMappingPage() {
     return ledger?.glCode === "216";
   });
 
-  // --- Add Ledger ---
-  const openAddModal = () => {
-    setFormData({ ...emptyForm });
-    setAddModalOpen(true);
+  // --- Sync from Core ---
+  const handleSync = () => {
+    setSyncLoading(true);
+    setTimeout(() => {
+      setSyncLoading(false);
+      addToast("success", "Ledger list synced from Core system");
+    }, 1500);
   };
 
-  const handleAddLedger = () => {
-    if (!formData.code.trim() || !formData.name.trim()) {
-      addToast("error", "Ledger Code and Name are required");
-      return;
-    }
-    if (ledgers.some((l) => l.code === formData.code.trim())) {
-      addToast("error", `Ledger code "${formData.code.trim()}" already exists`);
-      return;
-    }
-    const newLedger: BSCoreLedger = {
-      code: formData.code.trim(),
-      name: formData.name.trim(),
-      glCode: formData.glCode.trim(),
-      glName: formData.glName.trim(),
-      category: formData.category,
-      currency: formData.currency,
-      balance: parseFloat(formData.balance) || 0,
-    };
-    setLedgers((prev) => [...prev, newLedger]);
-    setAddModalOpen(false);
-    addToast("success", "Ledger added successfully");
-  };
-
-  // --- Edit Ledger ---
-  const openEditModal = () => {
-    if (selectedCodes.size !== 1) return;
-    const code = Array.from(selectedCodes)[0];
-    const ledger = ledgers.find((l) => l.code === code);
-    if (!ledger) return;
-    setFormData({
-      code: ledger.code,
-      name: ledger.name,
-      glCode: ledger.glCode,
-      glName: ledger.glName,
-      category: ledger.category,
-      currency: ledger.currency,
-      balance: String(ledger.balance),
+  // --- Exclude Ledger ---
+  const handleExclude = () => {
+    const codes = Array.from(selectedCodes);
+    // Also remove mappings for excluded codes
+    removeMappingsForCodes(codes);
+    setExcludedCodes((prev) => {
+      const next = new Set(prev);
+      codes.forEach((c) => next.add(c));
+      return next;
     });
-    setEditModalOpen(true);
-  };
-
-  const handleEditLedger = () => {
-    if (!formData.name.trim()) {
-      addToast("error", "Ledger Name is required");
-      return;
-    }
-    const editCode = Array.from(selectedCodes)[0];
-    setLedgers((prev) =>
-      prev.map((l) =>
-        l.code === editCode
-          ? {
-              ...l,
-              name: formData.name.trim(),
-              glCode: formData.glCode.trim(),
-              glName: formData.glName.trim(),
-              category: formData.category,
-              currency: formData.currency,
-              balance: parseFloat(formData.balance) || 0,
-            }
-          : l
-      )
-    );
-    setEditModalOpen(false);
-    addToast("success", "Ledger updated");
-  };
-
-  // --- Delete Ledger ---
-  const handleDeleteLedgers = () => {
-    const codes = new Set(selectedCodes);
-    const count = codes.size;
-    setLedgers((prev) => prev.filter((l) => !codes.has(l.code)));
-    // Also remove any mappings that reference deleted ledgers
-    setMappings((prev) =>
-      prev
-        .map((m) => ({
-          ...m,
-          coreLedgerCodes: m.coreLedgerCodes.filter((c) => !codes.has(c)),
-        }))
-        .filter((m) => m.coreLedgerCodes.length > 0)
-    );
+    addToast("warning", `${codes.length} ledger(s) excluded from integration`);
     setSelectedCodes(new Set());
-    setDeleteModalOpen(false);
-    addToast("success", `${count} ledger(s) deleted`);
   };
 
-  const updateField = (field: keyof LedgerFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  // --- Include Ledger ---
+  const handleInclude = (codes: string[]) => {
+    setExcludedCodes((prev) => {
+      const next = new Set(prev);
+      codes.forEach((c) => next.delete(c));
+      return next;
+    });
+    addToast("success", `${codes.length} ledger(s) included back`);
   };
 
-  // Shared form JSX for Add/Edit modals
-  const ledgerFormFields = (isEdit: boolean) => (
-    <div className="space-y-3">
-      <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Ledger Code *</label>
-        <input
-          type="text"
-          value={formData.code}
-          onChange={(e) => updateField("code", e.target.value)}
-          disabled={isEdit}
-          className={`w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            isEdit ? "bg-slate-100 text-slate-500 cursor-not-allowed" : ""
-          }`}
-          placeholder="e.g., 100099"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Ledger Name *</label>
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => updateField("name", e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="e.g., New Bank Account KRW"
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">GL Code</label>
-          <input
-            type="text"
-            value={formData.glCode}
-            onChange={(e) => updateField("glCode", e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g., 72"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">GL Name</label>
-          <input
-            type="text"
-            value={formData.glName}
-            onChange={(e) => updateField("glName", e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g., Bank Deposit KRW"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-slate-600 mb-1">Category</label>
-        <select
-          value={formData.category}
-          onChange={(e) => updateField("category", e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          {categoryValues.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Currency</label>
-          <select
-            value={formData.currency}
-            onChange={(e) => updateField("currency", e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            {currencies.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Balance</label>
-          <input
-            type="number"
-            value={formData.balance}
-            onChange={(e) => updateField("balance", e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="0"
-          />
-        </div>
-      </div>
-    </div>
-  );
+  const excludedLedgers = ledgers.filter((l) => excludedCodes.has(l.code));
 
   return (
     <div>
@@ -386,6 +226,15 @@ export default function BSMappingPage() {
                   options={categoryOptions}
                 />
               </div>
+              <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showExcluded}
+                  onChange={(e) => setShowExcluded(e.target.checked)}
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                Show Excluded ({excludedCodes.size})
+              </label>
             </div>
 
             <LedgerList
@@ -394,28 +243,24 @@ export default function BSMappingPage() {
               selectedCodes={selectedCodes}
               onToggle={toggleLedger}
               getMappingStatus={getMappingStatus}
+              excludedCodes={excludedCodes}
             />
 
             <div className="p-3 border-t border-slate-200 flex gap-2">
               <button
-                onClick={openAddModal}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-300 rounded hover:bg-slate-50"
+                onClick={handleSync}
+                disabled={syncLoading}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-slate-600 border border-slate-300 rounded hover:bg-slate-50 disabled:opacity-50"
               >
-                <Plus size={12} /> Add Ledger
+                {syncLoading ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={12} />
+                )}
+                Sync from Core
               </button>
               <button
-                onClick={openEditModal}
-                disabled={selectedCodes.size !== 1}
-                className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded border ${
-                  selectedCodes.size === 1
-                    ? "text-slate-600 border-slate-300 hover:bg-slate-50"
-                    : "text-slate-300 border-slate-200 cursor-not-allowed"
-                }`}
-              >
-                <Pencil size={12} /> Edit Ledger
-              </button>
-              <button
-                onClick={() => setDeleteModalOpen(true)}
+                onClick={handleExclude}
                 disabled={selectedCodes.size === 0}
                 className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded border ${
                   selectedCodes.size > 0
@@ -423,8 +268,18 @@ export default function BSMappingPage() {
                     : "text-slate-300 border-slate-200 cursor-not-allowed"
                 }`}
               >
-                <Trash2 size={12} /> Delete{selectedCodes.size > 0 ? ` (${selectedCodes.size})` : ""}
+                <EyeOff size={12} />
+                Exclude{selectedCodes.size > 0 ? ` (${selectedCodes.size})` : ""}
               </button>
+              {excludedCodes.size > 0 && (
+                <button
+                  onClick={() => setIncludeModalOpen(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
+                >
+                  <Eye size={12} />
+                  Include ({excludedCodes.size})
+                </button>
+              )}
             </div>
           </div>
 
@@ -473,79 +328,52 @@ export default function BSMappingPage() {
         </div>
       </div>
 
-      {/* Add Ledger Modal */}
-      <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add New Ledger">
-        {ledgerFormFields(false)}
-        <div className="flex gap-2 justify-end mt-5">
-          <button
-            onClick={() => setAddModalOpen(false)}
-            className="px-4 py-2 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleAddLedger}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
-          >
-            Add Ledger
-          </button>
-        </div>
-      </Modal>
-
-      {/* Edit Ledger Modal */}
-      <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Ledger">
-        {ledgerFormFields(true)}
-        <div className="flex gap-2 justify-end mt-5">
-          <button
-            onClick={() => setEditModalOpen(false)}
-            className="px-4 py-2 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleEditLedger}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
-          >
-            Save Changes
-          </button>
-        </div>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} title="Delete Ledger(s)">
-        <div className="space-y-4">
-          <div className="flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-md">
-            <AlertTriangle size={20} className="text-red-600 shrink-0" />
-            <p className="text-sm text-red-700">
-              Are you sure you want to delete <strong>{selectedCodes.size}</strong> selected ledger(s)?
-              This will also remove any associated mappings.
-            </p>
-          </div>
-          <div className="bg-slate-50 rounded-md p-3 max-h-40 overflow-y-auto space-y-1">
-            {Array.from(selectedCodes).map((code) => {
-              const ledger = ledgers.find((l) => l.code === code);
-              return (
-                <div key={code} className="text-sm">
-                  <span className="font-mono text-xs text-slate-500">{code}</span>{" "}
-                  <span className="text-slate-700">{ledger?.name}</span>
+      {/* Include Ledger Modal */}
+      <Modal open={includeModalOpen} onClose={() => setIncludeModalOpen(false)} title="Excluded Ledgers">
+        <div className="space-y-3">
+          <p className="text-sm text-slate-500">
+            Select ledgers to include back into the mapping list.
+          </p>
+          {excludedLedgers.length === 0 ? (
+            <p className="text-sm text-slate-400 py-4 text-center">No excluded ledgers</p>
+          ) : (
+            <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
+              {excludedLedgers.map((ledger) => (
+                <div
+                  key={ledger.code}
+                  className="flex items-center justify-between px-3 py-2 hover:bg-slate-50"
+                >
+                  <div>
+                    <span className="font-mono text-xs text-slate-500">{ledger.code}</span>{" "}
+                    <span className="text-sm text-slate-700">{ledger.name}</span>{" "}
+                    <span className="text-xs text-slate-400">({ledger.currency})</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleInclude([ledger.code]);
+                      if (excludedCodes.size <= 1) setIncludeModalOpen(false);
+                    }}
+                    className="px-2 py-1 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
+                  >
+                    Include
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-          <div className="flex gap-2 justify-end">
-            <button
-              onClick={() => setDeleteModalOpen(false)}
-              className="px-4 py-2 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleDeleteLedgers}
-              className="px-4 py-2 text-sm bg-red-600 text-white rounded-md hover:bg-red-700 font-medium"
-            >
-              Delete
-            </button>
-          </div>
+              ))}
+            </div>
+          )}
+          {excludedLedgers.length > 1 && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  handleInclude(excludedLedgers.map((l) => l.code));
+                  setIncludeModalOpen(false);
+                }}
+                className="px-3 py-1.5 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
+              >
+                Include All ({excludedLedgers.length})
+              </button>
+            </div>
+          )}
         </div>
       </Modal>
     </div>

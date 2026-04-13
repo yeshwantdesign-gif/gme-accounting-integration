@@ -52,7 +52,7 @@ export default function ManualIntegrationPage() {
 
     const groups = new Map<string, BSIntegrationEntry[]>();
     bsData.forEach((entry) => {
-      const key = `${entry.amaranthCode}|${entry.vendorCode}`;
+      const key = `${entry.amaranthCode}|${entry.vendorCode}|${entry.currency}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(entry);
     });
@@ -61,7 +61,6 @@ export default function ManualIntegrationPage() {
       const first = entries[0];
       const netDeltaKrw = entries.reduce((sum, e) => sum + e.deltaKrw, 0);
       const netDeltaFcy = entries.reduce((sum, e) => sum + e.deltaFcy, 0);
-      const sameCurrency = entries.every((e) => e.currency === first.currency);
       const { drCr } = calculateDrCr(first.accountNature, netDeltaKrw, true);
 
       return {
@@ -69,12 +68,12 @@ export default function ManualIntegrationPage() {
         amaranthName: first.amaranthName,
         vendorCode: first.vendorCode,
         vendorName: first.vendorName,
-        currency: sameCurrency ? first.currency : "MULTI",
-        coreFcyBalance: sameCurrency ? entries.reduce((s, e) => s + e.coreFcyBalance, 0) : 0,
+        currency: first.currency,
+        coreFcyBalance: entries.reduce((s, e) => s + e.coreFcyBalance, 0),
         coreKrwBalance: entries.reduce((s, e) => s + e.coreKrwBalance, 0),
-        amaranthFcyBalance: sameCurrency ? entries.reduce((s, e) => s + e.amaranthFcyBalance, 0) : 0,
+        amaranthFcyBalance: entries.reduce((s, e) => s + e.amaranthFcyBalance, 0),
         amaranthKrwBalance: entries.reduce((s, e) => s + e.amaranthKrwBalance, 0),
-        deltaFcy: sameCurrency ? netDeltaFcy : 0,
+        deltaFcy: netDeltaFcy,
         deltaKrw: netDeltaKrw,
         drCr,
         accountNature: first.accountNature,
@@ -120,11 +119,11 @@ export default function ManualIntegrationPage() {
       );
     } else {
       const entry = displayBsData[index];
-      const key = `${entry.amaranthCode}|${entry.vendorCode}`;
+      const key = `${entry.amaranthCode}|${entry.vendorCode}|${entry.currency}`;
       const newSelected = !entry.selected;
       setBsData((prev) =>
         prev.map((d) =>
-          `${d.amaranthCode}|${d.vendorCode}` === key
+          `${d.amaranthCode}|${d.vendorCode}|${d.currency}` === key
             ? { ...d, selected: newSelected }
             : d
         )

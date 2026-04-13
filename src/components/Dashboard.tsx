@@ -87,7 +87,8 @@ export default function Dashboard() {
                   <th className="pb-2 font-medium text-slate-600">Type</th>
                   <th className="pb-2 font-medium text-slate-600">Executed By</th>
                   <th className="pb-2 font-medium text-slate-600">Entries (BS/PL)</th>
-                  <th className="pb-2 font-medium text-slate-600">Total DR</th>
+                  <th className="pb-2 font-medium text-blue-600">Total DR</th>
+                  <th className="pb-2 font-medium text-orange-600">Total CR</th>
                   <th className="pb-2 font-medium text-slate-600">Status</th>
                 </tr>
               </thead>
@@ -109,7 +110,8 @@ export default function Dashboard() {
                     </td>
                     <td className="py-2">{h.executedBy}</td>
                     <td className="py-2 font-mono">{h.bsEntries} / {h.plEntries}</td>
-                    <td className="py-2 font-mono">{formatKRW(h.totalDr)}</td>
+                    <td className="py-2 font-mono text-blue-700">{formatKRW(h.totalDr)}</td>
+                    <td className="py-2 font-mono text-orange-700">{formatKRW(h.totalCr)}</td>
                     <td className="py-2">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
