@@ -6,7 +6,7 @@ interface ExecuteModalProps {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  mode: "confirm" | "success" | "error";
+  mode: "confirm" | "unbalanced" | "success" | "error";
   totalDr: number;
   totalCr: number;
   entryCount: number;
@@ -28,6 +28,7 @@ export default function ExecuteModal({
   return (
     <Modal open={open} onClose={onClose} title={
       mode === "confirm" ? "Confirm Integration Execution" :
+      mode === "unbalanced" ? "Unbalanced DR/CR Warning" :
       mode === "success" ? "Integration Successful" :
       "Integration Failed"
     }>
@@ -66,6 +67,45 @@ export default function ExecuteModal({
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
             >
               Execute Integration
+            </button>
+          </div>
+        </div>
+      )}
+
+      {mode === "unbalanced" && (
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle size={24} className="text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-slate-600">
+              Total DR and CR do not match. Are you sure you want to proceed with this unbalanced integration?
+            </p>
+          </div>
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-amber-700">Total DR (3)</span>
+              <span className="font-mono font-medium text-blue-700">{formatKRW(totalDr)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-amber-700">Total CR (4)</span>
+              <span className="font-mono font-medium text-orange-700">{formatKRW(totalCr)}</span>
+            </div>
+            <div className="flex justify-between border-t border-amber-200 pt-2">
+              <span className="text-amber-700 font-medium">Difference</span>
+              <span className="font-mono font-semibold text-red-600">{formatKRW(Math.abs(totalDr - totalCr))}</span>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              className="px-4 py-2 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700 font-medium"
+            >
+              Proceed Anyway
             </button>
           </div>
         </div>

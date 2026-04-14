@@ -11,8 +11,10 @@ import { integrationHistory as initialHistory } from "../../data/integrationHist
 import type { IntegrationHistoryEntry } from "../../types";
 import { formatKRW } from "../../utils/formatters";
 import { Eye, RotateCcw, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
+import { useLanguage } from "../../i18n/LanguageContext";
 
 export default function HistoryPage() {
+  const { t } = useLanguage();
   const [history, setHistory] = useState<IntegrationHistoryEntry[]>(initialHistory);
   const [typeFilter, setTypeFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -173,8 +175,8 @@ export default function HistoryPage() {
   return (
     <div>
       <Header
-        title="Integration History"
-        subtitle="Review past integration executions"
+        title={t("page.history.title")}
+        subtitle={t("page.history.subtitle")}
       />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 

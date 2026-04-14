@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
-import { Save, Trash2, X, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Save, Trash2, X, ChevronDown, Search } from "lucide-react";
+import Modal from "../common/Modal";
 
 interface BSMappingFormProps {
   type: "bs";
@@ -45,6 +46,42 @@ interface PLMappingFormProps {
 type MappingFormProps = BSMappingFormProps | PLMappingFormProps;
 
 const currencies = ["KRW", "USD", "NPR", "THB", "JPY", "PHP", "VND", "BDT", "EUR", "GBP", "IDR", "CNY", "KHR", "MNT", "MMK", "LKR", "PKR", "INR"];
+
+// --- Amaranth Account Lookup Data ---
+const amaranthAccounts = [
+  { code: "12600002", name: "예치금(소액해외송금 해외협력사)", drcrType: "1 (차변)", groupCode: "1260" },
+  { code: "4010001", name: "소액해외송금 당발송금 수익 (개인)", drcrType: "2 (대변)", groupCode: "4010" },
+  { code: "8540001", name: "소액해외송금 해외협력사수수료 비용", drcrType: "1 (차변)", groupCode: "8540" },
+  { code: "8010001", name: "급여", drcrType: "1 (차변)", groupCode: "8010" },
+  { code: "2530001", name: "미지급금", drcrType: "2 (대변)", groupCode: "2530" },
+  { code: "1080000", name: "외상매출금", drcrType: "1 (차변)", groupCode: "1080" },
+  { code: "1010001", name: "현금", drcrType: "1 (차변)", groupCode: "1010" },
+  { code: "1030001", name: "보통예금", drcrType: "1 (차변)", groupCode: "1030" },
+  { code: "2550000", name: "예수금", drcrType: "2 (대변)", groupCode: "2550" },
+  { code: "4050001", name: "이자수익", drcrType: "2 (대변)", groupCode: "4050" },
+  { code: "8110001", name: "임차료", drcrType: "1 (차변)", groupCode: "8110" },
+  { code: "8120001", name: "감가상각비", drcrType: "1 (차변)", groupCode: "8120" },
+  { code: "8210001", name: "복리후생비", drcrType: "1 (차변)", groupCode: "8210" },
+  { code: "8310001", name: "통신비", drcrType: "1 (차변)", groupCode: "8310" },
+  { code: "8410001", name: "소모품비", drcrType: "1 (차변)", groupCode: "8410" },
+  { code: "9010001", name: "이자비용", drcrType: "1 (차변)", groupCode: "9010" },
+];
+
+// --- Vendor Lookup Data ---
+const vendors = [
+  { code: "00003", name: "IME Ltd", type: "해외협력사" },
+  { code: "00105", name: "Kasikornbank", type: "해외협력사" },
+  { code: "VND-BC", name: "BC Card", type: "카드사" },
+  { code: "00112", name: "Daegu Bank", type: "금융기관" },
+  { code: "00045", name: "KEB Hana Bank", type: "금융기관" },
+  { code: "00078", name: "Kwangju Bank", type: "금융기관" },
+  { code: "00091", name: "Shinhan Bank", type: "금융기관" },
+  { code: "00023", name: "Wing Cambodia", type: "해외협력사" },
+  { code: "00056", name: "Alipay", type: "해외협력사" },
+  { code: "00034", name: "Commercial Bank of Ceylon", type: "해외협력사" },
+  { code: "00067", name: "KB Kookmin Bank", type: "금융기관" },
+  { code: "00089", name: "Woori Bank", type: "금융기관" },
+];
 
 function DeptDropdown({
   deptSearch,
@@ -139,6 +176,15 @@ export default function MappingForm(props: MappingFormProps) {
   const [deptSearch, setDeptSearch] = useState("");
   const [showDeptDropdown, setShowDeptDropdown] = useState(false);
 
+  // Lookup modal state
+  const [showAccountLookup, setShowAccountLookup] = useState(false);
+  const [accountLookupSearch, setAccountLookupSearch] = useState("");
+  const [showVendorLookup, setShowVendorLookup] = useState(false);
+  const [vendorLookupSearch, setVendorLookupSearch] = useState("");
+
+  const amaranthCodeRef = useRef<HTMLInputElement>(null);
+  const vendorCodeRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (props.type === "bs" && props.initialData) {
       setAmaranthCode(props.initialData.amaranthCode);
@@ -172,6 +218,36 @@ export default function MappingForm(props: MappingFormProps) {
     }
   };
 
+  // F2 handler for Amaranth Code field
+  const handleAmaranthKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "F2") {
+      e.preventDefault();
+      setAccountLookupSearch("");
+      setShowAccountLookup(true);
+    }
+  }, []);
+
+  // F2 handler for Vendor Code field
+  const handleVendorKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "F2") {
+      e.preventDefault();
+      setVendorLookupSearch("");
+      setShowVendorLookup(true);
+    }
+  }, []);
+
+  const filteredAccounts = amaranthAccounts.filter(
+    (a) =>
+      a.code.includes(accountLookupSearch) ||
+      a.name.toLowerCase().includes(accountLookupSearch.toLowerCase())
+  );
+
+  const filteredVendors = vendors.filter(
+    (v) =>
+      v.code.toLowerCase().includes(vendorLookupSearch.toLowerCase()) ||
+      v.name.toLowerCase().includes(vendorLookupSearch.toLowerCase())
+  );
+
   const filteredDepts =
     props.type === "pl"
       ? props.departments.filter(
@@ -194,17 +270,31 @@ export default function MappingForm(props: MappingFormProps) {
         )}
       </div>
 
+      {/* Amaranth GL Code with F2 lookup */}
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-1">
           Amaranth GL Code *
         </label>
-        <input
-          type="text"
-          value={amaranthCode}
-          onChange={(e) => setAmaranthCode(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="e.g., 12600002"
-        />
+        <div className="flex gap-1">
+          <input
+            ref={amaranthCodeRef}
+            type="text"
+            value={amaranthCode}
+            onChange={(e) => setAmaranthCode(e.target.value)}
+            onKeyDown={handleAmaranthKeyDown}
+            className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="e.g., 12600002"
+          />
+          <button
+            type="button"
+            onClick={() => { setAccountLookupSearch(""); setShowAccountLookup(true); }}
+            className="px-2.5 py-2 border border-slate-300 rounded-md hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors"
+            title="Search Amaranth accounts (F2)"
+          >
+            <Search size={14} />
+          </button>
+        </div>
+        <p className="text-xs text-slate-400 mt-1">Press F2 or click 🔍 to search</p>
       </div>
 
       <div>
@@ -222,17 +312,31 @@ export default function MappingForm(props: MappingFormProps) {
 
       {props.type === "bs" ? (
         <>
+          {/* Vendor Code with F2 lookup */}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
               Vendor Code * <span className="text-red-500">(Required for BS)</span>
             </label>
-            <input
-              type="text"
-              value={vendorCode}
-              onChange={(e) => setVendorCode(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., 00105"
-            />
+            <div className="flex gap-1">
+              <input
+                ref={vendorCodeRef}
+                type="text"
+                value={vendorCode}
+                onChange={(e) => setVendorCode(e.target.value)}
+                onKeyDown={handleVendorKeyDown}
+                className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., 00105"
+              />
+              <button
+                type="button"
+                onClick={() => { setVendorLookupSearch(""); setShowVendorLookup(true); }}
+                className="px-2.5 py-2 border border-slate-300 rounded-md hover:bg-slate-50 text-slate-500 hover:text-slate-700 transition-colors"
+                title="Search vendors (F2)"
+              >
+                <Search size={14} />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">Press F2 or click 🔍 to search</p>
           </div>
 
           <div>
@@ -304,6 +408,106 @@ export default function MappingForm(props: MappingFormProps) {
           Delete
         </button>
       </div>
+
+      {/* Amaranth Account Lookup Modal */}
+      <Modal open={showAccountLookup} onClose={() => setShowAccountLookup(false)} title="Amaranth Account Lookup" wide>
+        <div className="space-y-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={accountLookupSearch}
+              onChange={(e) => setAccountLookupSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Search by code or name..."
+              autoFocus
+            />
+          </div>
+          <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-80 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0">
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Account Code</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Account Name</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">DR/CR Type</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Group Code</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredAccounts.length === 0 ? (
+                  <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400">No matching accounts</td></tr>
+                ) : (
+                  filteredAccounts.map((acc) => (
+                    <tr
+                      key={acc.code}
+                      className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setAmaranthCode(acc.code);
+                        setAmaranthName(acc.name);
+                        setShowAccountLookup(false);
+                      }}
+                    >
+                      <td className="px-3 py-2 font-mono text-xs">{acc.code}</td>
+                      <td className="px-3 py-2">{acc.name}</td>
+                      <td className="px-3 py-2 text-xs">{acc.drcrType}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{acc.groupCode}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Vendor Lookup Modal (BS only) */}
+      <Modal open={showVendorLookup} onClose={() => setShowVendorLookup(false)} title="Vendor Lookup" wide>
+        <div className="space-y-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={vendorLookupSearch}
+              onChange={(e) => setVendorLookupSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Search by code or name..."
+              autoFocus
+            />
+          </div>
+          <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-80 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0">
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Vendor Code</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Vendor Name</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredVendors.length === 0 ? (
+                  <tr><td colSpan={3} className="px-3 py-6 text-center text-slate-400">No matching vendors</td></tr>
+                ) : (
+                  filteredVendors.map((v) => (
+                    <tr
+                      key={v.code}
+                      className="border-b border-slate-100 hover:bg-blue-50 cursor-pointer transition-colors"
+                      onClick={() => {
+                        setVendorCode(v.code);
+                        setVendorName(v.name);
+                        setShowVendorLookup(false);
+                      }}
+                    >
+                      <td className="px-3 py-2 font-mono text-xs">{v.code}</td>
+                      <td className="px-3 py-2">{v.name}</td>
+                      <td className="px-3 py-2 text-xs">{v.type}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

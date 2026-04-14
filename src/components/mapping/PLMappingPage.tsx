@@ -12,6 +12,19 @@ import { plMappings as initialPlMappings } from "../../data/mappings";
 import { departments } from "../../data/departments";
 import type { PLMapping, PLCategory, MappingStatus } from "../../types";
 import { AlertTriangle, RefreshCw, EyeOff, Eye, Loader2 } from "lucide-react";
+import MappingHistory from "./MappingHistory";
+import type { MappingHistoryEntry } from "./MappingHistory";
+import { useLanguage } from "../../i18n/LanguageContext";
+
+function nowTimestamp(): string {
+  const d = new Date();
+  return d.getFullYear() + "/" +
+    String(d.getMonth() + 1).padStart(2, "0") + "/" +
+    String(d.getDate()).padStart(2, "0") + " " +
+    String(d.getHours()).padStart(2, "0") + ":" +
+    String(d.getMinutes()).padStart(2, "0") + ":" +
+    String(d.getSeconds()).padStart(2, "0");
+}
 
 const categoryOptions = [
   { value: "All", label: "All Categories" },
@@ -23,6 +36,7 @@ const categoryOptions = [
 ];
 
 export default function PLMappingPage() {
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
@@ -32,6 +46,24 @@ export default function PLMappingPage() {
   const [showExcluded, setShowExcluded] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [includeModalOpen, setIncludeModalOpen] = useState(false);
+  const [historyLog, setHistoryLog] = useState<MappingHistoryEntry[]>([
+    { id: "seed-1", timestamp: "2026/03/28 11:20:15", user: "yeshwant", action: "Created", ledgerCode: "401001", ledgerName: "소액해외송금 당발송금 수익 (개인)", details: "Mapped to Amaranth 4010001 / Dept 211000" },
+    { id: "seed-2", timestamp: "2026/03/29 09:45:30", user: "sundariya", action: "Created", ledgerCode: "854001", ledgerName: "소액해외송금 해외협력사수수료 비용", details: "Mapped to Amaranth 8540001 / Dept 211000" },
+    { id: "seed-3", timestamp: "2026/03/30 16:10:05", user: "yeshwant", action: "Updated", ledgerCode: "401001", ledgerName: "소액해외송금 당발송금 수익 (개인)", details: "Changed department from 120000 to 211000" },
+    { id: "seed-4", timestamp: "2026/04/01 10:00:20", user: "yeshwant", action: "Excluded", ledgerCode: "999001", ledgerName: "법인세비용(당기)", details: "Excluded from integration" },
+  ]);
+
+  const addHistoryEntry = useCallback((action: MappingHistoryEntry["action"], ledgerCode: string, ledgerName: string, details: string) => {
+    setHistoryLog((prev) => [{
+      id: Date.now().toString(),
+      timestamp: nowTimestamp(),
+      user: "yeshwant",
+      action,
+      ledgerCode,
+      ledgerName,
+      details,
+    }, ...prev]);
+  }, []);
 
   const addToast = useCallback((type: ToastData["type"], message: string) => {
     const id = Date.now().toString();
@@ -101,6 +133,14 @@ export default function PLMappingPage() {
         },
       ];
     });
+    const ledger = plCoreLedgers.find((l) => l.code === selectedCode);
+    const isUpdate = mappings.some((m) => m.coreLedgerCode === selectedCode);
+    addHistoryEntry(
+      isUpdate ? "Updated" : "Created",
+      selectedCode,
+      ledger?.name || selectedCode,
+      `Mapped to Amaranth ${data.amaranthCode} / Dept ${data.departmentCode}`
+    );
     addToast("success", "PL mapping saved");
     setSelectedCode(null);
   };
@@ -109,6 +149,8 @@ export default function PLMappingPage() {
     if (selectedCode) {
       const hasMapping = mappings.some((m) => m.coreLedgerCode === selectedCode);
       if (hasMapping) {
+        const ledger = plCoreLedgers.find((l) => l.code === selectedCode);
+        addHistoryEntry("Removed", selectedCode, ledger?.name || selectedCode, "Mapping removed");
         setMappings((prev) => prev.filter((m) => m.coreLedgerCode !== selectedCode));
         addToast("success", "Mapping removed successfully");
       }
@@ -118,6 +160,8 @@ export default function PLMappingPage() {
 
   const handleDelete = () => {
     if (!selectedCode) return;
+    const ledger = plCoreLedgers.find((l) => l.code === selectedCode);
+    addHistoryEntry("Removed", selectedCode, ledger?.name || selectedCode, "Mapping removed");
     setMappings((prev) => prev.filter((m) => m.coreLedgerCode !== selectedCode));
     addToast("success", "Mapping removed successfully");
     setSelectedCode(null);
@@ -132,10 +176,20 @@ export default function PLMappingPage() {
     : null;
 
   // --- Sync from Core ---
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+
   const handleSync = () => {
     setSyncLoading(true);
     setTimeout(() => {
       setSyncLoading(false);
+      const now = new Date();
+      const ts = now.getFullYear() + "/" +
+        String(now.getMonth() + 1).padStart(2, "0") + "/" +
+        String(now.getDate()).padStart(2, "0") + " " +
+        String(now.getHours()).padStart(2, "0") + ":" +
+        String(now.getMinutes()).padStart(2, "0") + ":" +
+        String(now.getSeconds()).padStart(2, "0");
+      setLastSyncTime(ts);
       addToast("success", "Ledger list synced from Core system");
     }, 1500);
   };
@@ -143,7 +197,8 @@ export default function PLMappingPage() {
   // --- Exclude Ledger ---
   const handleExclude = () => {
     if (!selectedCode) return;
-    // Remove mapping for excluded code
+    const ledger = plCoreLedgers.find((l) => l.code === selectedCode);
+    addHistoryEntry("Excluded", selectedCode, ledger?.name || selectedCode, "Excluded from integration");
     setMappings((prev) => prev.filter((m) => m.coreLedgerCode !== selectedCode));
     setExcludedCodes((prev) => {
       const next = new Set(prev);
@@ -156,6 +211,10 @@ export default function PLMappingPage() {
 
   // --- Include Ledger ---
   const handleInclude = (codes: string[]) => {
+    codes.forEach((code) => {
+      const ledger = plCoreLedgers.find((l) => l.code === code);
+      addHistoryEntry("Included", code, ledger?.name || code, "Included back into integration");
+    });
     setExcludedCodes((prev) => {
       const next = new Set(prev);
       codes.forEach((c) => next.delete(c));
@@ -169,18 +228,21 @@ export default function PLMappingPage() {
   return (
     <div>
       <Header
-        title="PL Account Mapping"
-        subtitle="Profit & Loss — Core System → Amaranth 10 (1:1 Strict)"
+        title={t("page.plMapping.title")}
+        subtitle={t("page.plMapping.subtitle")}
       />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
       <div className="p-6">
+        <div className="flex justify-end mb-4">
+          <MappingHistory entries={historyLog} />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Panel */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="p-4 border-b border-slate-200 space-y-3">
               <h3 className="text-sm font-semibold text-slate-700">
-                Core System P&L Ledgers
+                {t("label.corePLLedgers")}
               </h3>
               <div className="flex gap-3">
                 <div className="flex-1">
@@ -216,7 +278,8 @@ export default function PLMappingPage() {
               excludedCodes={excludedCodes}
             />
 
-            <div className="p-3 border-t border-slate-200 flex gap-2">
+            <div className="p-3 border-t border-slate-200 space-y-2">
+              <div className="flex gap-2">
               <button
                 onClick={handleSync}
                 disabled={syncLoading}
@@ -250,6 +313,14 @@ export default function PLMappingPage() {
                   Include ({excludedCodes.size})
                 </button>
               )}
+              </div>
+              <div className="text-xs">
+                {lastSyncTime ? (
+                  <span className="text-slate-500">Last synced: {lastSyncTime}</span>
+                ) : (
+                  <span className="text-slate-400">Last synced: Never</span>
+                )}
+              </div>
             </div>
           </div>
 

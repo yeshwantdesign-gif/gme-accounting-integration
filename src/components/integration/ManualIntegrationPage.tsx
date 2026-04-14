@@ -12,10 +12,12 @@ import {
 import type { BSIntegrationEntry, PLIntegrationEntry } from "../../types";
 import { calculateDrCr } from "../../utils/drCrCalculator";
 import { Download, Play, Loader2, UserCheck } from "lucide-react";
+import { useLanguage } from "../../i18n/LanguageContext";
 
 export default function ManualIntegrationPage() {
-  const [activeTab, setActiveTab] = useState<"bs" | "pl">("bs");
-  const [method, setMethod] = useState<"gross" | "net">("gross");
+  const { t } = useLanguage();
+  const [activeTab, setActiveTab] = useState<"bs" | "pl" | "all">("bs");
+  const [method, setMethod] = useState<"gross" | "net" | "netOfGross">("gross");
   const [bsDate, setBsDate] = useState("2026-03-31");
   const [plDateFrom, setPlDateFrom] = useState("2026-03-01");
   const [plDateTo, setPlDateTo] = useState("2026-03-31");
@@ -23,7 +25,7 @@ export default function ManualIntegrationPage() {
   const [fetched, setFetched] = useState(false);
   const [bsData, setBsData] = useState<BSIntegrationEntry[]>([]);
   const [plData, setPlData] = useState<PLIntegrationEntry[]>([]);
-  const [modalMode, setModalMode] = useState<"confirm" | "success" | "error" | null>(null);
+  const [modalMode, setModalMode] = useState<"confirm" | "unbalanced" | "success" | "error" | null>(null);
   const [toasts, setToasts] = useState<ToastData[]>([]);
 
   const addToast = useCallback((type: ToastData["type"], message: string) => {
@@ -46,9 +48,27 @@ export default function ManualIntegrationPage() {
     }, 1500);
   };
 
-  // Display data: Gross passes raw data, Net computes netted entries
+  // Compute delta based on mode: compare Core vs Amaranth under the same calculation
+  function computeBsDelta(e: BSIntegrationEntry): number {
+    if (method === "gross") return (e.corePeriodDr - e.amaranthPeriodDr) - (e.corePeriodCr - e.amaranthPeriodCr);
+    if (method === "net") return e.coreClosingBalance - e.amaranthClosingBalance;
+    return (e.corePeriodDr - e.corePeriodCr) - (e.amaranthPeriodDr - e.amaranthPeriodCr);
+  }
+
+  function computePlDelta(e: PLIntegrationEntry): number {
+    if (method === "gross") return (e.corePeriodDr - e.amaranthPeriodDr) - (e.corePeriodCr - e.amaranthPeriodCr);
+    if (method === "net") return e.coreClosingBalance - e.amaranthClosingBalance;
+    return (e.corePeriodDr - e.corePeriodCr) - (e.amaranthPeriodDr - e.amaranthPeriodCr);
+  }
+
   const displayBsData = useMemo(() => {
-    if (method === "gross") return bsData;
+    if (method === "gross") {
+      return bsData.map((e): BSIntegrationEntry => {
+        const deltaKrw = computeBsDelta(e);
+        const { drCr } = calculateDrCr(e.accountNature, deltaKrw, true);
+        return { ...e, deltaKrw, drCr };
+      });
+    }
 
     const groups = new Map<string, BSIntegrationEntry[]>();
     bsData.forEach((entry) => {
@@ -59,31 +79,38 @@ export default function ManualIntegrationPage() {
 
     return Array.from(groups.values()).map((entries): BSIntegrationEntry => {
       const first = entries[0];
-      const netDeltaKrw = entries.reduce((sum, e) => sum + e.deltaKrw, 0);
-      const netDeltaFcy = entries.reduce((sum, e) => sum + e.deltaFcy, 0);
-      const { drCr } = calculateDrCr(first.accountNature, netDeltaKrw, true);
-
-      return {
+      const s = (fn: (e: BSIntegrationEntry) => number) => entries.reduce((a, e) => a + fn(e), 0);
+      const agg: BSIntegrationEntry = {
         amaranthCode: first.amaranthCode,
         amaranthName: first.amaranthName,
         vendorCode: first.vendorCode,
         vendorName: first.vendorName,
         currency: first.currency,
-        coreFcyBalance: entries.reduce((s, e) => s + e.coreFcyBalance, 0),
-        coreKrwBalance: entries.reduce((s, e) => s + e.coreKrwBalance, 0),
-        amaranthFcyBalance: entries.reduce((s, e) => s + e.amaranthFcyBalance, 0),
-        amaranthKrwBalance: entries.reduce((s, e) => s + e.amaranthKrwBalance, 0),
-        deltaFcy: netDeltaFcy,
-        deltaKrw: netDeltaKrw,
-        drCr,
+        corePeriodDr: s((e) => e.corePeriodDr),
+        corePeriodCr: s((e) => e.corePeriodCr),
+        coreClosingBalance: s((e) => e.coreClosingBalance),
+        amaranthPeriodDr: s((e) => e.amaranthPeriodDr),
+        amaranthPeriodCr: s((e) => e.amaranthPeriodCr),
+        amaranthClosingBalance: s((e) => e.amaranthClosingBalance),
+        deltaKrw: 0,
+        drCr: 3,
         accountNature: first.accountNature,
         selected: entries.every((e) => e.selected),
       };
+      const deltaKrw = computeBsDelta(agg);
+      const { drCr } = calculateDrCr(agg.accountNature, deltaKrw, true);
+      return { ...agg, deltaKrw, drCr };
     });
   }, [bsData, method]);
 
   const displayPlData = useMemo(() => {
-    if (method === "gross") return plData;
+    if (method === "gross") {
+      return plData.map((e): PLIntegrationEntry => {
+        const deltaKrw = computePlDelta(e);
+        const { drCr } = calculateDrCr(e.accountNature, deltaKrw, false);
+        return { ...e, deltaKrw, drCr };
+      });
+    }
 
     const groups = new Map<string, PLIntegrationEntry[]>();
     plData.forEach((entry) => {
@@ -94,21 +121,26 @@ export default function ManualIntegrationPage() {
 
     return Array.from(groups.values()).map((entries): PLIntegrationEntry => {
       const first = entries[0];
-      const netDeltaKrw = entries.reduce((sum, e) => sum + e.deltaKrw, 0);
-      const { drCr } = calculateDrCr(first.accountNature, netDeltaKrw, false);
-
-      return {
+      const s = (fn: (e: PLIntegrationEntry) => number) => entries.reduce((a, e) => a + fn(e), 0);
+      const agg: PLIntegrationEntry = {
         amaranthCode: first.amaranthCode,
         amaranthName: first.amaranthName,
         deptCode: first.deptCode,
         deptName: first.deptName,
-        coreKrwBalance: entries.reduce((s, e) => s + e.coreKrwBalance, 0),
-        amaranthKrwBalance: entries.reduce((s, e) => s + e.amaranthKrwBalance, 0),
-        deltaKrw: netDeltaKrw,
-        drCr,
+        corePeriodDr: s((e) => e.corePeriodDr),
+        corePeriodCr: s((e) => e.corePeriodCr),
+        coreClosingBalance: s((e) => e.coreClosingBalance),
+        amaranthPeriodDr: s((e) => e.amaranthPeriodDr),
+        amaranthPeriodCr: s((e) => e.amaranthPeriodCr),
+        amaranthClosingBalance: s((e) => e.amaranthClosingBalance),
+        deltaKrw: 0,
+        drCr: 3,
         accountNature: first.accountNature,
         selected: entries.every((e) => e.selected),
       };
+      const deltaKrw = computePlDelta(agg);
+      const { drCr } = calculateDrCr(agg.accountNature, deltaKrw, false);
+      return { ...agg, deltaKrw, drCr };
     });
   }, [plData, method]);
 
@@ -118,6 +150,7 @@ export default function ManualIntegrationPage() {
         prev.map((d, i) => (i === index ? { ...d, selected: !d.selected } : d))
       );
     } else {
+      // Both "net" and "netOfGross" use grouped entries
       const entry = displayBsData[index];
       const key = `${entry.amaranthCode}|${entry.vendorCode}|${entry.currency}`;
       const newSelected = !entry.selected;
@@ -150,21 +183,31 @@ export default function ManualIntegrationPage() {
     }
   };
 
-  const currentData = activeTab === "bs" ? displayBsData : displayPlData;
+  const currentData = activeTab === "bs"
+    ? displayBsData
+    : activeTab === "pl"
+    ? displayPlData
+    : [...displayBsData, ...displayPlData];
   const selectedData = activeTab === "bs"
     ? displayBsData.filter((d) => d.selected)
-    : displayPlData.filter((d) => d.selected);
+    : activeTab === "pl"
+    ? displayPlData.filter((d) => d.selected)
+    : [...displayBsData.filter((d) => d.selected), ...displayPlData.filter((d) => d.selected)];
 
   const summary = useMemo(() => {
     let totalDr = 0;
     let totalCr = 0;
 
-    const data = activeTab === "bs" ? displayBsData : displayPlData;
-    data.filter((d) => d.selected).forEach((d) => {
-      const amount = Math.abs(d.deltaKrw);
-      if (d.drCr === 3) totalDr += amount;
-      else totalCr += amount;
-    });
+    const sumEntries = (data: { deltaKrw: number; drCr: 3 | 4; selected: boolean }[]) => {
+      data.filter((d) => d.selected).forEach((d) => {
+        const amount = Math.abs(d.deltaKrw);
+        if (d.drCr === 3) totalDr += amount;
+        else totalCr += amount;
+      });
+    };
+
+    if (activeTab === "bs" || activeTab === "all") sumEntries(displayBsData);
+    if (activeTab === "pl" || activeTab === "all") sumEntries(displayPlData);
 
     return {
       totalDr,
@@ -175,8 +218,14 @@ export default function ManualIntegrationPage() {
     };
   }, [activeTab, displayBsData, displayPlData, currentData, selectedData]);
 
+  const isBalanced = Math.abs(summary.net) < 0.01;
+
   const handleExecute = () => {
-    setModalMode("confirm");
+    if (activeTab === "all" && !isBalanced) {
+      setModalMode("unbalanced");
+    } else {
+      setModalMode("confirm");
+    }
   };
 
   const handleConfirmExecute = () => {
@@ -192,8 +241,8 @@ export default function ManualIntegrationPage() {
   return (
     <div>
       <Header
-        title="Manual Voucher Integration"
-        subtitle="Manual data integration — Core System → Amaranth 10"
+        title={t("page.manualVoucher.title")}
+        subtitle={t("page.manualVoucher.subtitle")}
       />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
 
@@ -213,7 +262,7 @@ export default function ManualIntegrationPage() {
         <div className="bg-white rounded-lg border border-slate-200 p-4">
           <div className="flex flex-wrap items-end gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Type</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.type")}</label>
               <div className="flex rounded-md border border-slate-300 overflow-hidden">
                 <button
                   onClick={() => setActiveTab("bs")}
@@ -235,12 +284,22 @@ export default function ManualIntegrationPage() {
                 >
                   PL
                 </button>
+                <button
+                  onClick={() => setActiveTab("all")}
+                  className={`px-4 py-2 text-sm font-medium border-l border-slate-300 ${
+                    activeTab === "all"
+                      ? "bg-purple-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {t("tab.all")}
+                </button>
               </div>
             </div>
 
-            {activeTab === "bs" ? (
+            {(activeTab === "bs" || activeTab === "all") && (
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Date</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.balanceDate")}</label>
                 <input
                   type="date"
                   value={bsDate}
@@ -248,10 +307,11 @@ export default function ManualIntegrationPage() {
                   className="px-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
-            ) : (
+            )}
+            {(activeTab === "pl" || activeTab === "all") && (
               <div className="flex gap-2 items-end">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">From</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.periodFrom")}</label>
                   <input
                     type="date"
                     value={plDateFrom}
@@ -260,7 +320,7 @@ export default function ManualIntegrationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">To</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.periodTo")}</label>
                   <input
                     type="date"
                     value={plDateTo}
@@ -272,7 +332,7 @@ export default function ManualIntegrationPage() {
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Method</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.method")}</label>
               <div className="flex rounded-md border border-slate-300 overflow-hidden">
                 <button
                   onClick={() => setMethod("gross")}
@@ -282,7 +342,7 @@ export default function ManualIntegrationPage() {
                       : "bg-white text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  Gross
+                  {t("tab.gross")}
                 </button>
                 <button
                   onClick={() => setMethod("net")}
@@ -292,7 +352,17 @@ export default function ManualIntegrationPage() {
                       : "bg-white text-slate-600 hover:bg-slate-50"
                   }`}
                 >
-                  Net
+                  {t("tab.net")}
+                </button>
+                <button
+                  onClick={() => setMethod("netOfGross")}
+                  className={`px-3 py-2 text-sm font-medium border-l border-slate-300 ${
+                    method === "netOfGross"
+                      ? "bg-purple-600 text-white"
+                      : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {t("tab.netOfGross")}
                 </button>
               </div>
             </div>
@@ -307,12 +377,12 @@ export default function ManualIntegrationPage() {
               ) : (
                 <Download size={16} />
               )}
-              Fetch Data
+              {t("btn.fetchData")}
             </button>
           </div>
         </div>
 
-        {fetched && <IntegrationSummary {...summary} />}
+        {fetched && <IntegrationSummary {...summary} activeTab={activeTab} />}
 
         {loading && !fetched && (
           <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
@@ -324,9 +394,18 @@ export default function ManualIntegrationPage() {
         {fetched && !loading && (
           <>
             {activeTab === "bs" ? (
-              <IntegrationTable type="bs" data={displayBsData} onToggle={toggleBs} />
+              <IntegrationTable type="bs" data={displayBsData} onToggle={toggleBs} method={method} />
+            ) : activeTab === "pl" ? (
+              <IntegrationTable type="pl" data={displayPlData} onToggle={togglePl} method={method} />
             ) : (
-              <IntegrationTable type="pl" data={displayPlData} onToggle={togglePl} />
+              <IntegrationTable
+                type="all"
+                bsData={displayBsData}
+                plData={displayPlData}
+                onToggleBs={toggleBs}
+                onTogglePl={togglePl}
+                method={method}
+              />
             )}
 
             <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between">
@@ -341,7 +420,7 @@ export default function ManualIntegrationPage() {
                 className="flex items-center gap-2 px-6 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 transition-colors"
               >
                 <Play size={16} />
-                Execute Integration
+                {t("btn.executeIntegration")}
               </button>
             </div>
           </>

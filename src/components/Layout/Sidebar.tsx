@@ -8,41 +8,18 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
-
-interface NavGroup {
-  label: string;
-  icon: React.ReactNode;
-  children: { label: string; path: string }[];
-}
-
-const navGroups: NavGroup[] = [
-  {
-    label: "Account Mapping",
-    icon: <ClipboardList size={18} />,
-    children: [
-      { label: "BS Mapping", path: "/mapping/bs" },
-      { label: "PL Mapping", path: "/mapping/pl" },
-    ],
-  },
-  {
-    label: "Data Integration",
-    icon: <RefreshCw size={18} />,
-    children: [
-      { label: "Auto Voucher", path: "/integration/auto" },
-      { label: "Manual Voucher", path: "/integration/manual" },
-    ],
-  },
-];
+import { useLanguage } from "../../i18n/LanguageContext";
 
 export default function Sidebar() {
   const location = useLocation();
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    "Account Mapping": true,
-    "Data Integration": true,
+    mapping: true,
+    integration: true,
   });
 
-  const toggle = (label: string) => {
-    setExpanded((prev) => ({ ...prev, [label]: !prev[label] }));
+  const toggle = (key: string) => {
+    setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const linkClass = (path: string) => {
@@ -53,6 +30,27 @@ export default function Sidebar() {
         : "text-slate-300 hover:bg-slate-700 hover:text-white"
     }`;
   };
+
+  const navGroups = [
+    {
+      key: "mapping",
+      label: t("nav.accountMapping"),
+      icon: <ClipboardList size={18} />,
+      children: [
+        { label: t("nav.bsMapping"), path: "/mapping/bs" },
+        { label: t("nav.plMapping"), path: "/mapping/pl" },
+      ],
+    },
+    {
+      key: "integration",
+      label: t("nav.dataIntegration"),
+      icon: <RefreshCw size={18} />,
+      children: [
+        { label: t("nav.autoVoucher"), path: "/integration/auto" },
+        { label: t("nav.manualVoucher"), path: "/integration/manual" },
+      ],
+    },
+  ];
 
   return (
     <aside className="w-60 bg-slate-800 min-h-screen flex flex-col shrink-0">
@@ -67,27 +65,27 @@ export default function Sidebar() {
         {/* Dashboard */}
         <NavLink to="/" className={() => linkClass("/")}>
           <LayoutDashboard size={18} />
-          Dashboard
+          {t("nav.dashboard")}
         </NavLink>
 
         {/* Nav groups */}
         {navGroups.map((group) => (
-          <div key={group.label}>
+          <div key={group.key}>
             <button
-              onClick={() => toggle(group.label)}
+              onClick={() => toggle(group.key)}
               className="flex items-center justify-between w-full px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
             >
               <span className="flex items-center gap-2">
                 {group.icon}
                 {group.label}
               </span>
-              {expanded[group.label] ? (
+              {expanded[group.key] ? (
                 <ChevronDown size={14} />
               ) : (
                 <ChevronRight size={14} />
               )}
             </button>
-            {expanded[group.label] && (
+            {expanded[group.key] && (
               <div className="ml-6 space-y-0.5">
                 {group.children.map((child) => (
                   <NavLink
@@ -106,12 +104,12 @@ export default function Sidebar() {
         {/* History */}
         <NavLink to="/history" className={() => linkClass("/history")}>
           <History size={18} />
-          Integration History
+          {t("nav.integrationHistory")}
         </NavLink>
       </nav>
 
       <div className="px-4 py-3 border-t border-slate-700 text-xs text-slate-500">
-        Phase 1 — Core → Amaranth
+        {t("misc.phase1")}
       </div>
     </aside>
   );

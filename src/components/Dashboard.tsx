@@ -12,8 +12,10 @@ import { plCoreLedgers } from "../data/plLedgers";
 import { bsMappings, plMappings } from "../data/mappings";
 import { integrationHistory } from "../data/integrationHistory";
 import { formatKRW } from "../utils/formatters";
+import { useLanguage } from "../i18n/LanguageContext";
 
 export default function Dashboard() {
+  const { t } = useLanguage();
   const bsMapped = new Set(bsMappings.flatMap((m) => m.coreLedgerCodes));
   const plMapped = new Set(plMappings.map((m) => m.coreLedgerCode));
 
@@ -27,8 +29,8 @@ export default function Dashboard() {
   return (
     <div>
       <Header
-        title="Dashboard"
-        subtitle="GME Core System → Amaranth 10 Integration Overview"
+        title={t("page.dashboard.title")}
+        subtitle={t("page.dashboard.subtitle")}
       />
 
       <div className="p-6 space-y-6">
