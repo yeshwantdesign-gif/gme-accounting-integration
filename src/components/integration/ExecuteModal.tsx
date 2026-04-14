@@ -77,7 +77,7 @@ export default function ExecuteModal({
           <div className="flex items-start gap-3">
             <AlertTriangle size={24} className="text-amber-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-slate-600">
-              Total DR and CR do not match. Are you sure you want to proceed with this unbalanced integration?
+              Total DR and CR do not match. You can adjust manually in Amaranth after integration.
             </p>
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-md p-4 space-y-2 text-sm">
@@ -105,7 +105,7 @@ export default function ExecuteModal({
               onClick={onConfirm}
               className="px-4 py-2 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700 font-medium"
             >
-              Proceed Anyway
+              Proceed
             </button>
           </div>
         </div>
