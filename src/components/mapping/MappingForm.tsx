@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Save, Trash2, X, ChevronDown, Search } from "lucide-react";
 import Modal from "../common/Modal";
+import { useLanguage } from "../../i18n/LanguageContext";
 
 interface BSMappingFormProps {
   type: "bs";
@@ -98,6 +99,7 @@ function DeptDropdown({
   filteredDepts: { code: string; name: string; level: string }[];
   onSelect: (dept: { code: string; name: string }) => void;
 }) {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -123,7 +125,7 @@ function DeptDropdown({
   return (
     <div className="relative" ref={containerRef}>
       <label className="block text-xs font-medium text-slate-600 mb-1">
-        Department * <span className="text-red-500">(Required for PL)</span>
+        {t("label.department")} <span className="text-red-500">{t("label.departmentRequired")}</span>
       </label>
       <div className="relative">
         <input
@@ -135,7 +137,7 @@ function DeptDropdown({
           }}
           onClick={() => setShowDeptDropdown(!showDeptDropdown)}
           className="w-full px-3 py-2 pr-8 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Search department..."
+          placeholder={t("msg.searchDepartment")}
         />
         <ChevronDown
           size={16}
@@ -166,6 +168,7 @@ function DeptDropdown({
 }
 
 export default function MappingForm(props: MappingFormProps) {
+  const { t } = useLanguage();
   const [amaranthCode, setAmaranthCode] = useState("");
   const [amaranthName, setAmaranthName] = useState("");
   const [vendorCode, setVendorCode] = useState("");
@@ -261,11 +264,11 @@ export default function MappingForm(props: MappingFormProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-slate-700">
-          Amaranth Mapping Configuration
+          {t("label.amaranthMappingConfig")}
         </h3>
         {props.selectedCount > 1 && props.type === "bs" && (
           <span className="px-2 py-1 bg-amber-100 text-amber-700 text-xs font-medium rounded">
-            N:1 Mapping ({props.selectedCount} ledgers)
+            {t("msg.n1Mapping")} ({props.selectedCount} {t("msg.ledgers")})
           </span>
         )}
       </div>
@@ -273,7 +276,7 @@ export default function MappingForm(props: MappingFormProps) {
       {/* Amaranth GL Code with F2 lookup */}
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-1">
-          Amaranth GL Code *
+          {t("label.amaranthGlCode")}
         </label>
         <div className="flex gap-1">
           <input
@@ -294,12 +297,12 @@ export default function MappingForm(props: MappingFormProps) {
             <Search size={14} />
           </button>
         </div>
-        <p className="text-xs text-slate-400 mt-1">Press F2 or click 🔍 to search</p>
+        <p className="text-xs text-slate-400 mt-1">{t("msg.f2ToSearch")}</p>
       </div>
 
       <div>
         <label className="block text-xs font-medium text-slate-600 mb-1">
-          Amaranth GL Name *
+          {t("label.amaranthGlName")}
         </label>
         <input
           type="text"
@@ -315,7 +318,7 @@ export default function MappingForm(props: MappingFormProps) {
           {/* Vendor Code with F2 lookup */}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
-              Vendor Code * <span className="text-red-500">(Required for BS)</span>
+              {t("label.vendorCode")} <span className="text-red-500">{t("label.vendorCodeRequired")}</span>
             </label>
             <div className="flex gap-1">
               <input
@@ -336,12 +339,12 @@ export default function MappingForm(props: MappingFormProps) {
                 <Search size={14} />
               </button>
             </div>
-            <p className="text-xs text-slate-400 mt-1">Press F2 or click 🔍 to search</p>
+            <p className="text-xs text-slate-400 mt-1">{t("msg.f2ToSearch")}</p>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
-              Vendor Name
+              {t("label.vendorName")}
             </label>
             <input
               type="text"
@@ -354,7 +357,7 @@ export default function MappingForm(props: MappingFormProps) {
 
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">
-              Currency Code *
+              {t("label.currencyCode")}
             </label>
             <select
               value={currencyCode}
@@ -391,26 +394,26 @@ export default function MappingForm(props: MappingFormProps) {
           className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
         >
           <Save size={14} />
-          Save Mapping
+          {t("btn.saveMapping")}
         </button>
         <button
           onClick={props.onClear}
           className="flex items-center gap-1.5 px-4 py-2 border border-slate-300 text-slate-600 text-sm font-medium rounded-md hover:bg-slate-50 transition-colors"
         >
           <X size={14} />
-          Clear
+          {t("btn.clear")}
         </button>
         <button
           onClick={props.onDelete}
           className="flex items-center gap-1.5 px-4 py-2 border border-red-300 text-red-600 text-sm font-medium rounded-md hover:bg-red-50 transition-colors"
         >
           <Trash2 size={14} />
-          Delete
+          {t("btn.delete")}
         </button>
       </div>
 
       {/* Amaranth Account Lookup Modal */}
-      <Modal open={showAccountLookup} onClose={() => setShowAccountLookup(false)} title="Amaranth Account Lookup" wide>
+      <Modal open={showAccountLookup} onClose={() => setShowAccountLookup(false)} title={t("modal.amaranthAccountLookup")} wide>
         <div className="space-y-3">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -419,7 +422,7 @@ export default function MappingForm(props: MappingFormProps) {
               value={accountLookupSearch}
               onChange={(e) => setAccountLookupSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Search by code or name..."
+              placeholder={t("msg.searchByCodeOrName")}
               autoFocus
             />
           </div>
@@ -427,15 +430,15 @@ export default function MappingForm(props: MappingFormProps) {
             <table className="w-full text-sm">
               <thead className="sticky top-0">
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Account Code</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Account Name</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">DR/CR Type</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Group Code</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">{t("th.accountCode")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">{t("th.accountName")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">{t("th.drCrType")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">{t("th.groupCode")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAccounts.length === 0 ? (
-                  <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400">No matching accounts</td></tr>
+                  <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-400">{t("msg.noMatchingAccounts")}</td></tr>
                 ) : (
                   filteredAccounts.map((acc) => (
                     <tr
@@ -461,7 +464,7 @@ export default function MappingForm(props: MappingFormProps) {
       </Modal>
 
       {/* Vendor Lookup Modal (BS only) */}
-      <Modal open={showVendorLookup} onClose={() => setShowVendorLookup(false)} title="Vendor Lookup" wide>
+      <Modal open={showVendorLookup} onClose={() => setShowVendorLookup(false)} title={t("modal.vendorLookup")} wide>
         <div className="space-y-3">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -470,7 +473,7 @@ export default function MappingForm(props: MappingFormProps) {
               value={vendorLookupSearch}
               onChange={(e) => setVendorLookupSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Search by code or name..."
+              placeholder={t("msg.searchByCodeOrName")}
               autoFocus
             />
           </div>
@@ -478,14 +481,14 @@ export default function MappingForm(props: MappingFormProps) {
             <table className="w-full text-sm">
               <thead className="sticky top-0">
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Vendor Code</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Vendor Name</th>
-                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">Type</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">{t("th.vendorCodeCol")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">{t("th.vendorNameCol")}</th>
+                  <th className="px-3 py-2 text-left font-medium text-slate-600 whitespace-nowrap">{t("th.typeCol")}</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredVendors.length === 0 ? (
-                  <tr><td colSpan={3} className="px-3 py-6 text-center text-slate-400">No matching vendors</td></tr>
+                  <tr><td colSpan={3} className="px-3 py-6 text-center text-slate-400">{t("msg.noMatchingVendors")}</td></tr>
                 ) : (
                   filteredVendors.map((v) => (
                     <tr

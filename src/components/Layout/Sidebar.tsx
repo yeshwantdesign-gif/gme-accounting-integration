@@ -56,9 +56,9 @@ export default function Sidebar() {
     <aside className="w-60 bg-slate-800 min-h-screen flex flex-col shrink-0">
       <div className="px-4 py-5 border-b border-slate-700">
         <h1 className="text-white text-base font-semibold tracking-tight">
-          GME Accounting
+          {t("sidebar.appName")}
         </h1>
-        <p className="text-slate-400 text-xs mt-0.5">Amaranth 10 Integration</p>
+        <p className="text-slate-400 text-xs mt-0.5">{t("sidebar.appSubtitle")}</p>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">

@@ -1,5 +1,6 @@
 import type { BSIntegrationEntry, PLIntegrationEntry } from "../../types";
-import { formatKRW } from "../../utils/formatters";
+import { formatKRW, formatKRWDecimal, formatFCY } from "../../utils/formatters";
+import { useLanguage } from "../../i18n/LanguageContext";
 import Badge from "../common/Badge";
 import DataTable from "../common/DataTable";
 import type { Column } from "../common/DataTable";
@@ -69,28 +70,28 @@ function checkboxCol(onToggle: (i: number) => void): Column<UnifiedRow> {
   };
 }
 
-function codeCol(): Column<UnifiedRow> {
+function codeCol(t: (k: string) => string): Column<UnifiedRow> {
   return {
     key: "amaranthCode",
-    label: "Amaranth Code",
+    label: t("th.amaranthCode"),
     sortValue: (r) => r.amaranthCode,
     render: (row) => <span className="font-mono text-xs">{row.amaranthCode}</span>,
   };
 }
 
-function nameCol(): Column<UnifiedRow> {
+function nameCol(t: (k: string) => string): Column<UnifiedRow> {
   return {
     key: "amaranthName",
-    label: "Amaranth Name",
+    label: t("th.amaranthName"),
     sortValue: (r) => r.amaranthName,
     render: (row) => <span className="text-sm">{row.amaranthName}</span>,
   };
 }
 
-function drCrCol(): Column<UnifiedRow> {
+function drCrCol(t: (k: string) => string): Column<UnifiedRow> {
   return {
     key: "drCr",
-    label: "DR/CR",
+    label: t("th.drCr"),
     sortValue: (r) => r.drCr,
     render: (row) => (
       <Badge variant={row.drCr === 3 ? "blue" : "orange"}>
@@ -100,7 +101,8 @@ function drCrCol(): Column<UnifiedRow> {
   };
 }
 
-function amountCol(key: string, label: string, getValue: (r: UnifiedRow) => number, colored = false): Column<UnifiedRow> {
+// Source columns: show 2 decimal places (as Core provides them); FCY always 2dp
+function sourceAmountCol(key: string, label: string, getValue: (r: UnifiedRow) => number): Column<UnifiedRow> {
   return {
     key,
     label,
@@ -108,41 +110,59 @@ function amountCol(key: string, label: string, getValue: (r: UnifiedRow) => numb
     sortValue: getValue,
     render: (row) => {
       const v = getValue(row);
-      const colorClass = colored
-        ? v > 0 ? "text-green-600" : v < 0 ? "text-red-600" : ""
-        : "";
+      const formatted = row.currency === "KRW" ? formatKRWDecimal(v) : formatFCY(v);
       return (
-        <span className={`font-mono text-xs text-right block ${colored ? "font-medium" : ""} ${colorClass}`}>
-          {formatKRW(v)}
+        <span className="font-mono text-xs text-right block">
+          {formatted}
         </span>
       );
     },
   };
 }
 
-function getValueColumns(method: Method): Column<UnifiedRow>[] {
+// Delta columns: KRW rounded to whole numbers (Amaranth compatibility); FCY 2dp
+function deltaAmountCol(key: string, label: string, getValue: (r: UnifiedRow) => number): Column<UnifiedRow> {
+  return {
+    key,
+    label,
+    className: "text-right",
+    sortValue: getValue,
+    render: (row) => {
+      const v = getValue(row);
+      const formatted = row.currency === "KRW" ? formatKRW(v) : formatFCY(v);
+      const colorClass = v > 0 ? "text-green-600" : v < 0 ? "text-red-600" : "";
+      return (
+        <span className={`font-mono text-xs text-right block font-medium ${colorClass}`}>
+          {formatted}
+        </span>
+      );
+    },
+  };
+}
+
+function getValueColumns(method: Method, t: (k: string) => string): Column<UnifiedRow>[] {
   if (method === "gross") {
     return [
-      amountCol("coreDr", "Core DR", (r) => r.corePeriodDr),
-      amountCol("coreCr", "Core CR", (r) => r.corePeriodCr),
-      amountCol("amrDr", "Amaranth DR", (r) => r.amaranthPeriodDr),
-      amountCol("amrCr", "Amaranth CR", (r) => r.amaranthPeriodCr),
-      amountCol("deltaDr", "Delta DR", (r) => r.corePeriodDr - r.amaranthPeriodDr, true),
-      amountCol("deltaCr", "Delta CR", (r) => r.corePeriodCr - r.amaranthPeriodCr, true),
+      sourceAmountCol("coreDr", t("th.coreDr"), (r) => r.corePeriodDr),
+      sourceAmountCol("coreCr", t("th.coreCr"), (r) => r.corePeriodCr),
+      sourceAmountCol("amrDr", t("th.amaranthDr"), (r) => r.amaranthPeriodDr),
+      sourceAmountCol("amrCr", t("th.amaranthCr"), (r) => r.amaranthPeriodCr),
+      deltaAmountCol("deltaDr", t("th.deltaDr"), (r) => r.corePeriodDr - r.amaranthPeriodDr),
+      deltaAmountCol("deltaCr", t("th.deltaCr"), (r) => r.corePeriodCr - r.amaranthPeriodCr),
     ];
   }
   if (method === "net") {
     return [
-      amountCol("coreBal", "Core Balance", (r) => r.coreClosingBalance),
-      amountCol("amrBal", "Amaranth Balance", (r) => r.amaranthClosingBalance),
-      amountCol("delta", "Delta", (r) => r.deltaKrw, true),
+      sourceAmountCol("coreBal", t("th.coreBalance"), (r) => r.coreClosingBalance),
+      sourceAmountCol("amrBal", t("th.amaranthBalance"), (r) => r.amaranthClosingBalance),
+      deltaAmountCol("delta", t("th.delta"), (r) => r.deltaKrw),
     ];
   }
   // netOfGross
   return [
-    amountCol("coreNet", "Core Net", (r) => r.corePeriodDr - r.corePeriodCr),
-    amountCol("amrNet", "Amaranth Net", (r) => r.amaranthPeriodDr - r.amaranthPeriodCr),
-    amountCol("delta", "Delta", (r) => r.deltaKrw, true),
+    sourceAmountCol("coreNet", t("th.coreNet"), (r) => r.corePeriodDr - r.corePeriodCr),
+    sourceAmountCol("amrNet", t("th.amaranthNet"), (r) => r.amaranthPeriodDr - r.amaranthPeriodCr),
+    deltaAmountCol("delta", t("th.delta"), (r) => r.deltaKrw),
   ];
 }
 
@@ -191,6 +211,7 @@ function toPlRow(row: PLIntegrationEntry, entryType?: "BS" | "PL"): UnifiedRow {
 }
 
 export default function IntegrationTable(props: IntegrationTableProps) {
+  const { t } = useLanguage();
   const { method } = props as { method: Method };
 
   if (props.type === "all") {
@@ -208,7 +229,7 @@ export default function IntegrationTable(props: IntegrationTableProps) {
       checkboxCol(handleToggle),
       {
         key: "entryType",
-        label: "Type",
+        label: t("th.type"),
         sortValue: (r) => r.entryType || "",
         render: (row) => (
           <Badge variant={row.entryType === "BS" ? "blue" : "success"}>
@@ -216,11 +237,11 @@ export default function IntegrationTable(props: IntegrationTableProps) {
           </Badge>
         ),
       },
-      codeCol(),
-      nameCol(),
+      codeCol(t),
+      nameCol(t),
       {
         key: "vendorCode",
-        label: "Vendor",
+        label: t("th.vendorCode"),
         sortValue: (r) => r.vendorCode,
         render: (row) =>
           row.vendorCode ? (
@@ -234,7 +255,7 @@ export default function IntegrationTable(props: IntegrationTableProps) {
       },
       {
         key: "deptCode",
-        label: "Dept",
+        label: t("th.dept"),
         sortValue: (r) => r.deptCode,
         render: (row) =>
           row.deptCode ? (
@@ -248,19 +269,19 @@ export default function IntegrationTable(props: IntegrationTableProps) {
       },
       {
         key: "currency",
-        label: "CCY",
+        label: t("th.currency"),
         sortValue: (r) => r.currency,
         render: (row) => <span className="text-xs font-medium">{row.currency}</span>,
       },
-      ...getValueColumns(method),
-      drCrCol(),
+      ...getValueColumns(method, t),
+      drCrCol(t),
     ];
 
     return (
       <DataTable
         columns={columns}
         data={combinedData}
-        emptyMessage="No integration data. Click 'Fetch Data' to load."
+        emptyMessage={t("msg.noIntegrationData")}
         rowClassName={(row) => (!row.selected ? "opacity-40" : "")}
       />
     );
@@ -270,11 +291,11 @@ export default function IntegrationTable(props: IntegrationTableProps) {
     const data = props.data.map((r) => toBsRow(r));
     const columns: Column<UnifiedRow>[] = [
       checkboxCol(props.onToggle),
-      codeCol(),
-      nameCol(),
+      codeCol(t),
+      nameCol(t),
       {
         key: "vendorCode",
-        label: "Vendor",
+        label: t("th.vendorCode"),
         sortValue: (r) => r.vendorCode,
         render: (row) => (
           <div>
@@ -285,19 +306,19 @@ export default function IntegrationTable(props: IntegrationTableProps) {
       },
       {
         key: "currency",
-        label: "CCY",
+        label: t("th.currency"),
         sortValue: (r) => r.currency,
         render: (row) => <span className="text-xs font-medium">{row.currency}</span>,
       },
-      ...getValueColumns(method),
-      drCrCol(),
+      ...getValueColumns(method, t),
+      drCrCol(t),
     ];
 
     return (
       <DataTable
         columns={columns}
         data={data}
-        emptyMessage="No BS integration data. Click 'Fetch Data' to load."
+        emptyMessage={t("msg.noBsIntegrationData")}
         rowClassName={(row) => (!row.selected ? "opacity-40" : "")}
       />
     );
@@ -307,29 +328,29 @@ export default function IntegrationTable(props: IntegrationTableProps) {
   const data = props.data.map((r) => toPlRow(r));
   const columns: Column<UnifiedRow>[] = [
     checkboxCol(props.onToggle),
-    codeCol(),
-    nameCol(),
+    codeCol(t),
+    nameCol(t),
     {
       key: "deptCode",
-      label: "Dept Code",
+      label: t("th.deptCode"),
       sortValue: (r) => r.deptCode,
       render: (row) => <span className="font-mono text-xs">{row.deptCode}</span>,
     },
     {
       key: "deptName",
-      label: "Dept Name",
+      label: t("th.deptName"),
       sortValue: (r) => r.deptName,
       render: (row) => <span className="text-sm">{row.deptName}</span>,
     },
-    ...getValueColumns(method),
-    drCrCol(),
+    ...getValueColumns(method, t),
+    drCrCol(t),
   ];
 
   return (
     <DataTable
       columns={columns}
       data={data}
-      emptyMessage="No PL integration data. Click 'Fetch Data' to load."
+      emptyMessage={t("msg.noPlIntegrationData")}
       rowClassName={(row) => (!row.selected ? "opacity-40" : "")}
     />
   );

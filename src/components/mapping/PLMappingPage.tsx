@@ -8,62 +8,38 @@ import Modal from "../common/Modal";
 import ToastContainer from "../common/Toast";
 import type { ToastData } from "../common/Toast";
 import { plCoreLedgers } from "../../data/plLedgers";
-import { plMappings as initialPlMappings } from "../../data/mappings";
 import { departments } from "../../data/departments";
-import type { PLMapping, PLCategory, MappingStatus } from "../../types";
+import type { PLCategory, MappingStatus } from "../../types";
 import { AlertTriangle, RefreshCw, EyeOff, Eye, Loader2 } from "lucide-react";
 import MappingHistory from "./MappingHistory";
-import type { MappingHistoryEntry } from "./MappingHistory";
 import { useLanguage } from "../../i18n/LanguageContext";
-
-function nowTimestamp(): string {
-  const d = new Date();
-  return d.getFullYear() + "/" +
-    String(d.getMonth() + 1).padStart(2, "0") + "/" +
-    String(d.getDate()).padStart(2, "0") + " " +
-    String(d.getHours()).padStart(2, "0") + ":" +
-    String(d.getMinutes()).padStart(2, "0") + ":" +
-    String(d.getSeconds()).padStart(2, "0");
-}
-
-const categoryOptions = [
-  { value: "All", label: "All Categories" },
-  { value: "Operating Revenue", label: "Operating Revenue" },
-  { value: "Operating Expenses", label: "Operating Expenses" },
-  { value: "Non-Operating Income", label: "Non-Operating Income" },
-  { value: "Non-Operating Expenses", label: "Non-Operating Expenses" },
-  { value: "Corporate Tax", label: "Corporate Tax" },
-];
+import { useMappingContext } from "../../context/MappingContext";
 
 export default function PLMappingPage() {
   const { t } = useLanguage();
+
+  const categoryOptions = [
+    { value: "All", label: t("label.allCategories") },
+    { value: "Operating Revenue", label: t("cat.operatingRevenue") },
+    { value: "Operating Expenses", label: t("cat.operatingExpenses") },
+    { value: "Non-Operating Income", label: t("cat.nonOperatingIncome") },
+    { value: "Non-Operating Expenses", label: t("cat.nonOperatingExpenses") },
+    { value: "Corporate Tax", label: t("cat.corporateTax") },
+  ];
+  const {
+    plMappings: mappings, setPlMappings: setMappings,
+    plExcludedCodes: excludedCodes, setPlExcludedCodes: setExcludedCodes,
+    plLastSyncTime: lastSyncTime, setPlLastSyncTime: setLastSyncTime,
+    plHistoryLog: historyLog, addPlHistoryEntry: addHistoryEntry,
+  } = useMappingContext();
+
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const [mappings, setMappings] = useState<PLMapping[]>(initialPlMappings);
   const [toasts, setToasts] = useState<ToastData[]>([]);
-  const [excludedCodes, setExcludedCodes] = useState<Set<string>>(new Set());
   const [showExcluded, setShowExcluded] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [includeModalOpen, setIncludeModalOpen] = useState(false);
-  const [historyLog, setHistoryLog] = useState<MappingHistoryEntry[]>([
-    { id: "seed-1", timestamp: "2026/03/28 11:20:15", user: "yeshwant", action: "Created", ledgerCode: "401001", ledgerName: "소액해외송금 당발송금 수익 (개인)", details: "Mapped to Amaranth 4010001 / Dept 211000" },
-    { id: "seed-2", timestamp: "2026/03/29 09:45:30", user: "sundariya", action: "Created", ledgerCode: "854001", ledgerName: "소액해외송금 해외협력사수수료 비용", details: "Mapped to Amaranth 8540001 / Dept 211000" },
-    { id: "seed-3", timestamp: "2026/03/30 16:10:05", user: "yeshwant", action: "Updated", ledgerCode: "401001", ledgerName: "소액해외송금 당발송금 수익 (개인)", details: "Changed department from 120000 to 211000" },
-    { id: "seed-4", timestamp: "2026/04/01 10:00:20", user: "yeshwant", action: "Excluded", ledgerCode: "999001", ledgerName: "법인세비용(당기)", details: "Excluded from integration" },
-  ]);
-
-  const addHistoryEntry = useCallback((action: MappingHistoryEntry["action"], ledgerCode: string, ledgerName: string, details: string) => {
-    setHistoryLog((prev) => [{
-      id: Date.now().toString(),
-      timestamp: nowTimestamp(),
-      user: "yeshwant",
-      action,
-      ledgerCode,
-      ledgerName,
-      details,
-    }, ...prev]);
-  }, []);
 
   const addToast = useCallback((type: ToastData["type"], message: string) => {
     const id = Date.now().toString();
@@ -117,7 +93,7 @@ export default function PLMappingPage() {
   }) => {
     if (!selectedCode) return;
     if (!data.amaranthCode || !data.departmentCode) {
-      addToast("error", "Amaranth GL Code and Department are required for PL mappings");
+      addToast("error", t("toast.plMappingRequired"));
       return;
     }
     setMappings((prev) => {
@@ -141,7 +117,7 @@ export default function PLMappingPage() {
       ledger?.name || selectedCode,
       `Mapped to Amaranth ${data.amaranthCode} / Dept ${data.departmentCode}`
     );
-    addToast("success", "PL mapping saved");
+    addToast("success", t("toast.plMappingSaved"));
     setSelectedCode(null);
   };
 
@@ -152,7 +128,7 @@ export default function PLMappingPage() {
         const ledger = plCoreLedgers.find((l) => l.code === selectedCode);
         addHistoryEntry("Removed", selectedCode, ledger?.name || selectedCode, "Mapping removed");
         setMappings((prev) => prev.filter((m) => m.coreLedgerCode !== selectedCode));
-        addToast("success", "Mapping removed successfully");
+        addToast("success", t("toast.mappingRemoved"));
       }
     }
     setSelectedCode(null);
@@ -163,7 +139,7 @@ export default function PLMappingPage() {
     const ledger = plCoreLedgers.find((l) => l.code === selectedCode);
     addHistoryEntry("Removed", selectedCode, ledger?.name || selectedCode, "Mapping removed");
     setMappings((prev) => prev.filter((m) => m.coreLedgerCode !== selectedCode));
-    addToast("success", "Mapping removed successfully");
+    addToast("success", t("toast.mappingRemoved"));
     setSelectedCode(null);
   };
 
@@ -176,8 +152,6 @@ export default function PLMappingPage() {
     : null;
 
   // --- Sync from Core ---
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-
   const handleSync = () => {
     setSyncLoading(true);
     setTimeout(() => {
@@ -190,7 +164,7 @@ export default function PLMappingPage() {
         String(now.getMinutes()).padStart(2, "0") + ":" +
         String(now.getSeconds()).padStart(2, "0");
       setLastSyncTime(ts);
-      addToast("success", "Ledger list synced from Core system");
+      addToast("success", t("toast.ledgersSynced"));
     }, 1500);
   };
 
@@ -205,7 +179,7 @@ export default function PLMappingPage() {
       next.add(selectedCode);
       return next;
     });
-    addToast("warning", "1 ledger(s) excluded from integration");
+    addToast("warning", `1 ${t("toast.ledgersExcluded")}`);
     setSelectedCode(null);
   };
 
@@ -220,7 +194,7 @@ export default function PLMappingPage() {
       codes.forEach((c) => next.delete(c));
       return next;
     });
-    addToast("success", `${codes.length} ledger(s) included back`);
+    addToast("success", `${codes.length} ${t("toast.ledgersIncluded")}`);
   };
 
   const excludedLedgers = plCoreLedgers.filter((l) => excludedCodes.has(l.code));
@@ -249,7 +223,7 @@ export default function PLMappingPage() {
                   <SearchInput
                     value={search}
                     onChange={setSearch}
-                    placeholder="Search by code or name..."
+                    placeholder={t("msg.searchByCodeOrName")}
                   />
                 </div>
                 <FilterDropdown
@@ -265,7 +239,7 @@ export default function PLMappingPage() {
                   onChange={(e) => setShowExcluded(e.target.checked)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                Show Excluded ({excludedCodes.size})
+                {t("misc.showExcluded")} ({excludedCodes.size})
               </label>
             </div>
 
@@ -290,7 +264,7 @@ export default function PLMappingPage() {
                 ) : (
                   <RefreshCw size={12} />
                 )}
-                Sync from Core
+                {t("btn.syncFromCore")}
               </button>
               <button
                 onClick={handleExclude}
@@ -302,7 +276,7 @@ export default function PLMappingPage() {
                 }`}
               >
                 <EyeOff size={12} />
-                Exclude
+                {t("btn.exclude")}
               </button>
               {excludedCodes.size > 0 && (
                 <button
@@ -310,15 +284,15 @@ export default function PLMappingPage() {
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
                 >
                   <Eye size={12} />
-                  Include ({excludedCodes.size})
+                  {t("btn.include")} ({excludedCodes.size})
                 </button>
               )}
               </div>
               <div className="text-xs">
                 {lastSyncTime ? (
-                  <span className="text-slate-500">Last synced: {lastSyncTime}</span>
+                  <span className="text-slate-500">{t("label.lastSynced")}: {lastSyncTime}</span>
                 ) : (
-                  <span className="text-slate-400">Last synced: Never</span>
+                  <span className="text-slate-400">{t("label.lastSynced")}: {t("label.never")}</span>
                 )}
               </div>
             </div>
@@ -328,19 +302,19 @@ export default function PLMappingPage() {
           <div className="bg-white rounded-lg border border-slate-200 p-4">
             {!selectedCode ? (
               <div className="flex items-center justify-center h-full text-sm text-slate-400 py-20">
-                Select a ledger on the left to configure mapping
+                {t("msg.selectLedgerToMap")}
               </div>
             ) : (
               <>
                 {hasGl148Warning && (
                   <div className="flex items-center gap-2 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-700">
                     <AlertTriangle size={16} />
-                    Unused Ledger Warning: GL 148 item detected
+                    {t("msg.unusedLedgerWarningGl148")}
                   </div>
                 )}
 
                 <div className="mb-4 p-3 bg-slate-50 rounded-md">
-                  <p className="text-xs text-slate-500 mb-1">Selected Ledger:</p>
+                  <p className="text-xs text-slate-500 mb-1">{t("label.selectedLedger")}:</p>
                   <div className="text-sm">
                     <span className="font-mono text-xs text-slate-500">{selectedCode}</span>{" "}
                     <span className="text-slate-700">{selectedLedger?.name}</span>
@@ -370,13 +344,13 @@ export default function PLMappingPage() {
       </div>
 
       {/* Include Ledger Modal */}
-      <Modal open={includeModalOpen} onClose={() => setIncludeModalOpen(false)} title="Excluded Ledgers">
+      <Modal open={includeModalOpen} onClose={() => setIncludeModalOpen(false)} title={t("modal.excludedLedgers")}>
         <div className="space-y-3">
           <p className="text-sm text-slate-500">
-            Select ledgers to include back into the mapping list.
+            {t("msg.selectLedgersToInclude")}
           </p>
           {excludedLedgers.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4 text-center">No excluded ledgers</p>
+            <p className="text-sm text-slate-400 py-4 text-center">{t("msg.noExcludedLedgers")}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
               {excludedLedgers.map((ledger) => (
@@ -395,7 +369,7 @@ export default function PLMappingPage() {
                     }}
                     className="px-2 py-1 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
                   >
-                    Include
+                    {t("btn.include")}
                   </button>
                 </div>
               ))}
@@ -410,7 +384,7 @@ export default function PLMappingPage() {
                 }}
                 className="px-3 py-1.5 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
               >
-                Include All ({excludedLedgers.length})
+                {t("btn.includeAll")} ({excludedLedgers.length})
               </button>
             </div>
           )}

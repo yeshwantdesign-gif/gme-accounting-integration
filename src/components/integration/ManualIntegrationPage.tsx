@@ -44,32 +44,27 @@ export default function ManualIntegrationPage() {
       setPlData(initialPlData.map((d) => ({ ...d })));
       setFetched(true);
       setLoading(false);
-      addToast("success", "Manual voucher data fetched");
+      addToast("success", t("toast.manualDataFetched"));
     }, 1500);
   };
 
   // Compute delta based on mode: compare Core vs Amaranth under the same calculation
-  function computeBsDelta(e: BSIntegrationEntry): number {
-    if (method === "gross") return (e.corePeriodDr - e.amaranthPeriodDr) - (e.corePeriodCr - e.amaranthPeriodCr);
-    if (method === "net") return e.coreClosingBalance - e.amaranthClosingBalance;
-    return (e.corePeriodDr - e.corePeriodCr) - (e.amaranthPeriodDr - e.amaranthPeriodCr);
-  }
-
-  function computePlDelta(e: PLIntegrationEntry): number {
-    if (method === "gross") return (e.corePeriodDr - e.amaranthPeriodDr) - (e.corePeriodCr - e.amaranthPeriodCr);
-    if (method === "net") return e.coreClosingBalance - e.amaranthClosingBalance;
+  function computeDelta(m: typeof method, e: { corePeriodDr: number; corePeriodCr: number; coreClosingBalance: number; amaranthPeriodDr: number; amaranthPeriodCr: number; amaranthClosingBalance: number }): number {
+    if (m === "gross") return (e.corePeriodDr - e.amaranthPeriodDr) - (e.corePeriodCr - e.amaranthPeriodCr);
+    if (m === "net") return e.coreClosingBalance - e.amaranthClosingBalance;
     return (e.corePeriodDr - e.corePeriodCr) - (e.amaranthPeriodDr - e.amaranthPeriodCr);
   }
 
   const displayBsData = useMemo(() => {
     if (method === "gross") {
       return bsData.map((e): BSIntegrationEntry => {
-        const deltaKrw = computeBsDelta(e);
+        const deltaKrw = computeDelta(method, e);
         const { drCr } = calculateDrCr(e.accountNature, deltaKrw, true);
         return { ...e, deltaKrw, drCr };
       });
     }
 
+    // Net / Net of Gross: group entries by account+vendor+currency into single rows
     const groups = new Map<string, BSIntegrationEntry[]>();
     bsData.forEach((entry) => {
       const key = `${entry.amaranthCode}|${entry.vendorCode}|${entry.currency}`;
@@ -97,7 +92,7 @@ export default function ManualIntegrationPage() {
         accountNature: first.accountNature,
         selected: entries.every((e) => e.selected),
       };
-      const deltaKrw = computeBsDelta(agg);
+      const deltaKrw = computeDelta(method, agg);
       const { drCr } = calculateDrCr(agg.accountNature, deltaKrw, true);
       return { ...agg, deltaKrw, drCr };
     });
@@ -106,12 +101,13 @@ export default function ManualIntegrationPage() {
   const displayPlData = useMemo(() => {
     if (method === "gross") {
       return plData.map((e): PLIntegrationEntry => {
-        const deltaKrw = computePlDelta(e);
+        const deltaKrw = computeDelta(method, e);
         const { drCr } = calculateDrCr(e.accountNature, deltaKrw, false);
         return { ...e, deltaKrw, drCr };
       });
     }
 
+    // Net / Net of Gross: group entries by account+dept into single rows
     const groups = new Map<string, PLIntegrationEntry[]>();
     plData.forEach((entry) => {
       const key = `${entry.amaranthCode}|${entry.deptCode}`;
@@ -138,7 +134,7 @@ export default function ManualIntegrationPage() {
         accountNature: first.accountNature,
         selected: entries.every((e) => e.selected),
       };
-      const deltaKrw = computePlDelta(agg);
+      const deltaKrw = computeDelta(method, agg);
       const { drCr } = calculateDrCr(agg.accountNature, deltaKrw, false);
       return { ...agg, deltaKrw, drCr };
     });
@@ -234,7 +230,7 @@ export default function ManualIntegrationPage() {
     setTimeout(() => {
       setLoading(false);
       setModalMode("success");
-      addToast("success", "Manual integration executed successfully");
+      addToast("success", t("toast.manualIntegrationExecuted"));
     }, 1500);
   };
 
@@ -251,7 +247,7 @@ export default function ManualIntegrationPage() {
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 flex items-center gap-3">
           <UserCheck size={18} className="text-purple-600" />
           <div className="text-sm">
-            <span className="font-medium text-purple-800">Executed by: yeshwant</span>
+            <span className="font-medium text-purple-800">{t("label.executedBy")}: yeshwant</span>
             <span className="text-purple-500 ml-3">
               {new Date().toISOString().replace("T", " ").substring(0, 19)}
             </span>
@@ -299,7 +295,7 @@ export default function ManualIntegrationPage() {
 
             {(activeTab === "bs" || activeTab === "all") && (
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.balanceDate")}</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t(activeTab === "all" ? "label.bsBalanceDate" : "label.balanceDate")}</label>
                 <input
                   type="date"
                   value={bsDate}
@@ -311,7 +307,7 @@ export default function ManualIntegrationPage() {
             {(activeTab === "pl" || activeTab === "all") && (
               <div className="flex gap-2 items-end">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.periodFrom")}</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t(activeTab === "all" ? "label.plPeriodFrom" : "label.periodFrom")}</label>
                   <input
                     type="date"
                     value={plDateFrom}
@@ -320,7 +316,7 @@ export default function ManualIntegrationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.periodTo")}</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t(activeTab === "all" ? "label.plPeriodTo" : "label.periodTo")}</label>
                   <input
                     type="date"
                     value={plDateTo}
@@ -387,7 +383,7 @@ export default function ManualIntegrationPage() {
         {loading && !fetched && (
           <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
             <Loader2 size={32} className="animate-spin mx-auto text-purple-500 mb-3" />
-            <p className="text-sm text-slate-500">Fetching manual voucher data...</p>
+            <p className="text-sm text-slate-500">{t("msg.fetchingManualVoucherData")}</p>
           </div>
         )}
 
@@ -408,10 +404,12 @@ export default function ManualIntegrationPage() {
               />
             )}
 
+            <p className="text-xs text-slate-400 mt-1">{t("msg.krwRoundingNote")}</p>
+
             <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between">
               <div className="text-sm text-slate-500">
-                <span className="font-medium text-slate-700">Executor:</span> yeshwant |{" "}
-                <span className="font-medium text-slate-700">Timestamp:</span>{" "}
+                <span className="font-medium text-slate-700">{t("label.executor")}:</span> yeshwant |{" "}
+                <span className="font-medium text-slate-700">{t("label.timestamp")}:</span>{" "}
                 {new Date().toISOString().replace("T", " ").substring(0, 19)}
               </div>
               <button

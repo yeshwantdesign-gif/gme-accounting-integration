@@ -8,62 +8,37 @@ import Modal from "../common/Modal";
 import ToastContainer from "../common/Toast";
 import type { ToastData } from "../common/Toast";
 import { bsCoreLedgers as initialLedgers } from "../../data/bsLedgers";
-import { bsMappings as initialBsMappings } from "../../data/mappings";
-import type { BSMapping, BSCategory, MappingStatus } from "../../types";
+import type { BSCategory, MappingStatus } from "../../types";
 import { AlertTriangle, RefreshCw, EyeOff, Eye, Loader2 } from "lucide-react";
 import MappingHistory from "./MappingHistory";
-import type { MappingHistoryEntry } from "./MappingHistory";
 import { useLanguage } from "../../i18n/LanguageContext";
-
-function nowTimestamp(): string {
-  const d = new Date();
-  return d.getFullYear() + "/" +
-    String(d.getMonth() + 1).padStart(2, "0") + "/" +
-    String(d.getDate()).padStart(2, "0") + " " +
-    String(d.getHours()).padStart(2, "0") + ":" +
-    String(d.getMinutes()).padStart(2, "0") + ":" +
-    String(d.getSeconds()).padStart(2, "0");
-}
-
-const categoryOptions = [
-  { value: "All", label: "All Categories" },
-  { value: "Current Assets", label: "Current Assets" },
-  { value: "Non-Current Assets", label: "Non-Current Assets" },
-  { value: "Current Liabilities", label: "Current Liabilities" },
-  { value: "Non-Current Liabilities", label: "Non-Current Liabilities" },
-  { value: "Equity", label: "Equity" },
-];
+import { useMappingContext } from "../../context/MappingContext";
 
 export default function BSMappingPage() {
   const { t } = useLanguage();
+
+  const categoryOptions = [
+    { value: "All", label: t("label.allCategories") },
+    { value: "Current Assets", label: t("cat.currentAssets") },
+    { value: "Non-Current Assets", label: t("cat.nonCurrentAssets") },
+    { value: "Current Liabilities", label: t("cat.currentLiabilities") },
+    { value: "Non-Current Liabilities", label: t("cat.nonCurrentLiabilities") },
+    { value: "Equity", label: t("cat.equity") },
+  ];
+  const {
+    bsMappings: mappings, setBsMappings: setMappings,
+    bsExcludedCodes: excludedCodes, setBsExcludedCodes: setExcludedCodes,
+    bsLastSyncTime: lastSyncTime, setBsLastSyncTime: setLastSyncTime,
+    bsHistoryLog: historyLog, addBsHistoryEntry: addHistoryEntry,
+  } = useMappingContext();
+
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
-  const [mappings, setMappings] = useState<BSMapping[]>(initialBsMappings);
   const [toasts, setToasts] = useState<ToastData[]>([]);
-  const [excludedCodes, setExcludedCodes] = useState<Set<string>>(new Set());
   const [showExcluded, setShowExcluded] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const [includeModalOpen, setIncludeModalOpen] = useState(false);
-  const [historyLog, setHistoryLog] = useState<MappingHistoryEntry[]>([
-    { id: "seed-1", timestamp: "2026/03/28 10:15:30", user: "yeshwant", action: "Created", ledgerCode: "110201", ledgerName: "외화보통예금(USD)", details: "Mapped to Amaranth 12600002 / Vendor 00003 / USD" },
-    { id: "seed-2", timestamp: "2026/03/28 10:18:45", user: "yeshwant", action: "Created", ledgerCode: "110202", ledgerName: "외화보통예금(THB)", details: "Mapped to Amaranth 12600002 / Vendor 00105 / THB" },
-    { id: "seed-3", timestamp: "2026/03/29 14:22:10", user: "sundariya", action: "Updated", ledgerCode: "110202", ledgerName: "외화보통예금(THB)", details: "Changed vendor from 00003 to 00105" },
-    { id: "seed-4", timestamp: "2026/03/30 09:05:55", user: "yeshwant", action: "Excluded", ledgerCode: "990101", ledgerName: "잡손실(비경상)", details: "Excluded from integration" },
-    { id: "seed-5", timestamp: "2026/04/01 11:30:00", user: "sundariya", action: "Included", ledgerCode: "990101", ledgerName: "잡손실(비경상)", details: "Included back into integration" },
-  ]);
-
-  const addHistoryEntry = useCallback((action: MappingHistoryEntry["action"], ledgerCode: string, ledgerName: string, details: string) => {
-    setHistoryLog((prev) => [{
-      id: Date.now().toString(),
-      timestamp: nowTimestamp(),
-      user: "yeshwant",
-      action,
-      ledgerCode,
-      ledgerName,
-      details,
-    }, ...prev]);
-  }, []);
 
   const addToast = useCallback((type: ToastData["type"], message: string) => {
     const id = Date.now().toString();
@@ -132,7 +107,7 @@ export default function BSMappingPage() {
     currencyCode: string;
   }) => {
     if (!data.amaranthCode || !data.vendorCode || !data.currencyCode) {
-      addToast("error", "Amaranth GL Code, Vendor Code, and Currency are required for BS mappings");
+      addToast("error", t("toast.bsMappingRequired"));
       return;
     }
     const codes = Array.from(selectedCodes);
@@ -165,7 +140,7 @@ export default function BSMappingPage() {
         `Mapped to Amaranth ${data.amaranthCode} / Vendor ${data.vendorCode} / ${data.currencyCode}`
       );
     });
-    addToast("success", `Mapping saved for ${codes.length} ledger(s)`);
+    addToast("success", `${t("toast.mappingSavedForLedgers")} ${codes.length} ${t("toast.ledgersUnit")}`);
     setSelectedCodes(new Set());
   };
 
@@ -191,7 +166,7 @@ export default function BSMappingPage() {
         addHistoryEntry("Removed", code, ledger?.name || code, "Mapping removed");
       });
       removeMappingsForCodes(codes);
-      addToast("success", "Mapping removed successfully");
+      addToast("success", t("toast.mappingRemoved"));
     }
     setSelectedCodes(new Set());
   };
@@ -203,7 +178,7 @@ export default function BSMappingPage() {
       addHistoryEntry("Removed", code, ledger?.name || code, "Mapping removed");
     });
     removeMappingsForCodes(codes);
-    addToast("success", "Mapping removed successfully");
+    addToast("success", t("toast.mappingRemoved"));
     setSelectedCodes(new Set());
   };
 
@@ -213,8 +188,6 @@ export default function BSMappingPage() {
   });
 
   // --- Sync from Core ---
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
-
   const handleSync = () => {
     setSyncLoading(true);
     setTimeout(() => {
@@ -227,7 +200,7 @@ export default function BSMappingPage() {
         String(now.getMinutes()).padStart(2, "0") + ":" +
         String(now.getSeconds()).padStart(2, "0");
       setLastSyncTime(ts);
-      addToast("success", "Ledger list synced from Core system");
+      addToast("success", t("toast.ledgersSynced"));
     }, 1500);
   };
 
@@ -244,7 +217,7 @@ export default function BSMappingPage() {
       codes.forEach((c) => next.add(c));
       return next;
     });
-    addToast("warning", `${codes.length} ledger(s) excluded from integration`);
+    addToast("warning", `${codes.length} ${t("toast.ledgersExcluded")}`);
     setSelectedCodes(new Set());
   };
 
@@ -259,7 +232,7 @@ export default function BSMappingPage() {
       codes.forEach((c) => next.delete(c));
       return next;
     });
-    addToast("success", `${codes.length} ledger(s) included back`);
+    addToast("success", `${codes.length} ${t("toast.ledgersIncluded")}`);
   };
 
   const excludedLedgers = ledgers.filter((l) => excludedCodes.has(l.code));
@@ -288,7 +261,7 @@ export default function BSMappingPage() {
                   <SearchInput
                     value={search}
                     onChange={setSearch}
-                    placeholder="Search by code or name..."
+                    placeholder={t("msg.searchByCodeOrName")}
                   />
                 </div>
                 <FilterDropdown
@@ -304,7 +277,7 @@ export default function BSMappingPage() {
                   onChange={(e) => setShowExcluded(e.target.checked)}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
-                Show Excluded ({excludedCodes.size})
+                {t("misc.showExcluded")} ({excludedCodes.size})
               </label>
             </div>
 
@@ -329,7 +302,7 @@ export default function BSMappingPage() {
                 ) : (
                   <RefreshCw size={12} />
                 )}
-                Sync from Core
+                {t("btn.syncFromCore")}
               </button>
               <button
                 onClick={handleExclude}
@@ -341,7 +314,7 @@ export default function BSMappingPage() {
                 }`}
               >
                 <EyeOff size={12} />
-                Exclude{selectedCodes.size > 0 ? ` (${selectedCodes.size})` : ""}
+                {t("btn.exclude")}{selectedCodes.size > 0 ? ` (${selectedCodes.size})` : ""}
               </button>
               {excludedCodes.size > 0 && (
                 <button
@@ -349,15 +322,15 @@ export default function BSMappingPage() {
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
                 >
                   <Eye size={12} />
-                  Include ({excludedCodes.size})
+                  {t("btn.include")} ({excludedCodes.size})
                 </button>
               )}
               </div>
               <div className="text-xs">
                 {lastSyncTime ? (
-                  <span className="text-slate-500">Last synced: {lastSyncTime}</span>
+                  <span className="text-slate-500">{t("label.lastSynced")}: {lastSyncTime}</span>
                 ) : (
-                  <span className="text-slate-400">Last synced: Never</span>
+                  <span className="text-slate-400">{t("label.lastSynced")}: {t("label.never")}</span>
                 )}
               </div>
             </div>
@@ -367,19 +340,19 @@ export default function BSMappingPage() {
           <div className="bg-white rounded-lg border border-slate-200 p-4">
             {selectedCodes.size === 0 ? (
               <div className="flex items-center justify-center h-full text-sm text-slate-400 py-20">
-                Select one or more ledgers on the left to configure mapping
+                {t("msg.selectLedgersToMap")}
               </div>
             ) : (
               <>
                 {hasGl216Warning && (
                   <div className="flex items-center gap-2 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md text-sm text-amber-700">
                     <AlertTriangle size={16} />
-                    Unused Ledger Warning: GL 216 items detected
+                    {t("msg.unusedLedgerWarningGl216")}
                   </div>
                 )}
 
                 <div className="mb-4 p-3 bg-slate-50 rounded-md">
-                  <p className="text-xs text-slate-500 mb-1">Selected Ledgers:</p>
+                  <p className="text-xs text-slate-500 mb-1">{t("label.selectedLedgers")}:</p>
                   <div className="space-y-1">
                     {Array.from(selectedCodes).map((code) => {
                       const ledger = ledgers.find((l) => l.code === code);
@@ -409,13 +382,13 @@ export default function BSMappingPage() {
       </div>
 
       {/* Include Ledger Modal */}
-      <Modal open={includeModalOpen} onClose={() => setIncludeModalOpen(false)} title="Excluded Ledgers">
+      <Modal open={includeModalOpen} onClose={() => setIncludeModalOpen(false)} title={t("modal.excludedLedgers")}>
         <div className="space-y-3">
           <p className="text-sm text-slate-500">
-            Select ledgers to include back into the mapping list.
+            {t("msg.selectLedgersToInclude")}
           </p>
           {excludedLedgers.length === 0 ? (
-            <p className="text-sm text-slate-400 py-4 text-center">No excluded ledgers</p>
+            <p className="text-sm text-slate-400 py-4 text-center">{t("msg.noExcludedLedgers")}</p>
           ) : (
             <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-md">
               {excludedLedgers.map((ledger) => (
@@ -435,7 +408,7 @@ export default function BSMappingPage() {
                     }}
                     className="px-2 py-1 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
                   >
-                    Include
+                    {t("btn.include")}
                   </button>
                 </div>
               ))}
@@ -450,7 +423,7 @@ export default function BSMappingPage() {
                 }}
                 className="px-3 py-1.5 text-xs font-medium text-green-600 border border-green-300 rounded hover:bg-green-50"
               >
-                Include All ({excludedLedgers.length})
+                {t("btn.includeAll")} ({excludedLedgers.length})
               </button>
             </div>
           )}

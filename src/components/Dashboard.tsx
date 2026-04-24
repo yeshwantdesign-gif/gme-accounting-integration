@@ -38,57 +38,57 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             icon={<ClipboardList size={20} className="text-blue-600" />}
-            label="BS Ledgers Mapped"
+            label={t("dashboard.bsLedgersMapped")}
             value={`${bsMappedCount} / ${bsCoreLedgers.length}`}
-            sublabel={`${Math.round((bsMappedCount / bsCoreLedgers.length) * 100)}% complete`}
+            sublabel={`${Math.round((bsMappedCount / bsCoreLedgers.length) * 100)}${t("dashboard.complete")}`}
             color="blue"
           />
           <StatCard
             icon={<ClipboardList size={20} className="text-indigo-600" />}
-            label="PL Ledgers Mapped"
+            label={t("dashboard.plLedgersMapped")}
             value={`${plMappedCount} / ${plCoreLedgers.length}`}
-            sublabel={`${Math.round((plMappedCount / plCoreLedgers.length) * 100)}% complete`}
+            sublabel={`${Math.round((plMappedCount / plCoreLedgers.length) * 100)}${t("dashboard.complete")}`}
             color="indigo"
           />
           <StatCard
             icon={<CheckCircle size={20} className="text-green-600" />}
-            label="Successful Integrations"
+            label={t("dashboard.successfulIntegrations")}
             value={String(successCount)}
-            sublabel={`${failedCount} failed`}
+            sublabel={`${failedCount} ${t("dashboard.failed")}`}
             color="green"
           />
           <StatCard
             icon={<RefreshCw size={20} className="text-amber-600" />}
-            label="Last Integration"
-            value={lastIntegration?.date || "N/A"}
-            sublabel={`by ${lastIntegration?.executedBy || "N/A"}`}
+            label={t("dashboard.lastIntegration")}
+            value={lastIntegration?.date || t("dashboard.na")}
+            sublabel={`${t("dashboard.by")} ${lastIntegration?.executedBy || t("dashboard.na")}`}
             color="amber"
           />
         </div>
 
         {/* Quick Actions */}
         <div className="bg-white rounded-lg border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Quick Actions</h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-4">{t("dashboard.quickActions")}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            <QuickAction to="/mapping/bs" label="BS Account Mapping" desc="Configure balance sheet mappings" />
-            <QuickAction to="/mapping/pl" label="PL Account Mapping" desc="Configure P&L mappings" />
-            <QuickAction to="/integration/auto" label="Auto Voucher" desc="Run automated integration" />
-            <QuickAction to="/history" label="View History" desc="Review past integrations" />
+            <QuickAction to="/mapping/bs" label={t("dashboard.bsAccountMapping")} desc={t("dashboard.bsAccountMappingDesc")} />
+            <QuickAction to="/mapping/pl" label={t("dashboard.plAccountMapping")} desc={t("dashboard.plAccountMappingDesc")} />
+            <QuickAction to="/integration/auto" label={t("dashboard.autoVoucher")} desc={t("dashboard.autoVoucherDesc")} />
+            <QuickAction to="/history" label={t("dashboard.viewHistory")} desc={t("dashboard.viewHistoryDesc")} />
           </div>
         </div>
 
         {/* Recent History */}
         <div className="bg-white rounded-lg border border-slate-200 p-5">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">Recent Integration History</h3>
+          <h3 className="text-sm font-semibold text-slate-700 mb-4">{t("dashboard.recentHistory")}</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-200 text-left">
-                  <th className="pb-2 font-medium text-slate-600">ID</th>
-                  <th className="pb-2 font-medium text-slate-600">Date</th>
-                  <th className="pb-2 font-medium text-slate-600">Type</th>
-                  <th className="pb-2 font-medium text-slate-600">Executed By</th>
-                  <th className="pb-2 font-medium text-slate-600">Entries (BS/PL)</th>
+                  <th className="pb-2 font-medium text-slate-600">{t("th.id")}</th>
+                  <th className="pb-2 font-medium text-slate-600">{t("label.date")}</th>
+                  <th className="pb-2 font-medium text-slate-600">{t("th.type")}</th>
+                  <th className="pb-2 font-medium text-slate-600">{t("label.executedBy")}</th>
+                  <th className="pb-2 font-medium text-slate-600">{t("th.entriesBsPl")}</th>
                   <th className="pb-2 font-medium text-blue-600">Total DR</th>
                   <th className="pb-2 font-medium text-orange-600">Total CR</th>
                   <th className="pb-2 font-medium text-slate-600">Status</th>
@@ -129,7 +129,7 @@ export default function Dashboard() {
                         ) : (
                           <AlertTriangle size={12} />
                         )}
-                        {h.status}
+                        {h.status === "Success" ? t("badge.success") : h.status === "Failed" ? t("badge.failed") : t("badge.rolledBack")}
                       </span>
                     </td>
                   </tr>

@@ -3,6 +3,7 @@ import type { BSCoreLedger, PLCoreLedger, MappingStatus } from "../../types";
 import Badge from "../common/Badge";
 import { formatAmount } from "../../utils/formatters";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { useLanguage } from "../../i18n/LanguageContext";
 
 interface BSLedgerListProps {
   type: "bs";
@@ -42,14 +43,14 @@ function groupByGL<T extends { glCode: string; glName: string }>(ledgers: T[]): 
   return Array.from(map.values());
 }
 
-function statusBadge(status: MappingStatus) {
+function statusBadge(status: MappingStatus, t: (key: string) => string) {
   switch (status) {
     case "Mapped":
-      return <Badge variant="success">Mapped</Badge>;
+      return <Badge variant="success">{t("badge.mapped")}</Badge>;
     case "Excluded":
-      return <Badge variant="error">Excluded</Badge>;
+      return <Badge variant="error">{t("badge.excluded")}</Badge>;
     default:
-      return <Badge variant="gray">Unmapped</Badge>;
+      return <Badge variant="gray">{t("badge.unmapped")}</Badge>;
   }
 }
 
@@ -82,6 +83,7 @@ function IndeterminateCheckbox({
 }
 
 export default function LedgerList(props: LedgerListProps) {
+  const { t } = useLanguage();
   const isExcluded = (code: string) => props.excludedCodes?.has(code) ?? false;
 
   // Build GL groups from filtered ledgers
@@ -94,8 +96,12 @@ export default function LedgerList(props: LedgerListProps) {
     [props.type === "pl" ? props.ledgers : null]
   );
 
-  // All groups expanded by default
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // All groups collapsed by default
+  const allGlCodes = useMemo(() => {
+    const groups = props.type === "bs" ? bsGroups : plGroups;
+    return new Set(groups.map((g) => g.glCode));
+  }, [props.type === "bs" ? bsGroups : plGroups]);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set(allGlCodes));
 
   const toggleCollapse = (glCode: string) => {
     setCollapsed((prev) => {
@@ -146,10 +152,10 @@ export default function LedgerList(props: LedgerListProps) {
                     GL {group.glCode}: {group.glName}
                   </span>
                   <span className="text-xs text-slate-500 ml-2">
-                    ({group.ledgers.length} ledger{group.ledgers.length !== 1 ? "s" : ""})
+                    ({group.ledgers.length} {group.ledgers.length !== 1 ? t("msg.ledgers") : t("msg.ledger")})
                   </span>
                   <span className="text-xs text-slate-400 ml-2">
-                    {mappedCount}/{group.ledgers.length} mapped
+                    {mappedCount}/{group.ledgers.length} {t("msg.mapped")}
                   </span>
                 </div>
                 <label
@@ -161,7 +167,7 @@ export default function LedgerList(props: LedgerListProps) {
                     indeterminate={someSelected}
                     onChange={handleSelectAll}
                   />
-                  <span className="hidden sm:inline">Select All</span>
+                  <span className="hidden sm:inline">{t("btn.selectAll")}</span>
                 </label>
               </div>
 
@@ -194,7 +200,7 @@ export default function LedgerList(props: LedgerListProps) {
                         {formatAmount(ledger.balance, ledger.currency)}
                       </div>
                       <div className="mt-0.5">
-                        {statusBadge(props.getMappingStatus(ledger.code))}
+                        {statusBadge(props.getMappingStatus(ledger.code), t)}
                       </div>
                     </div>
                   </label>
@@ -204,7 +210,7 @@ export default function LedgerList(props: LedgerListProps) {
         })}
         {bsGroups.length === 0 && (
           <div className="px-3 py-8 text-center text-sm text-slate-400">
-            No ledgers found
+            {t("msg.noLedgersFound")}
           </div>
         )}
       </div>
@@ -234,10 +240,10 @@ export default function LedgerList(props: LedgerListProps) {
                   GL {group.glCode}: {group.glName}
                 </span>
                 <span className="text-xs text-slate-500 ml-2">
-                  ({group.ledgers.length} ledger{group.ledgers.length !== 1 ? "s" : ""})
+                  ({group.ledgers.length} {group.ledgers.length !== 1 ? t("msg.ledgers") : t("msg.ledger")})
                 </span>
                 <span className="text-xs text-slate-400 ml-2">
-                  {mappedCount}/{group.ledgers.length} mapped
+                  {mappedCount}/{group.ledgers.length} {t("msg.mapped")}
                 </span>
               </div>
             </div>
@@ -269,7 +275,7 @@ export default function LedgerList(props: LedgerListProps) {
                       {formatAmount(ledger.balance, "KRW")}
                     </div>
                     <div className="mt-0.5">
-                      {statusBadge(props.getMappingStatus(ledger.code))}
+                      {statusBadge(props.getMappingStatus(ledger.code), t)}
                     </div>
                   </div>
                 </label>
@@ -279,7 +285,7 @@ export default function LedgerList(props: LedgerListProps) {
       })}
       {plGroups.length === 0 && (
         <div className="px-3 py-8 text-center text-sm text-slate-400">
-          No ledgers found
+          {t("msg.noLedgersFound")}
         </div>
       )}
     </div>

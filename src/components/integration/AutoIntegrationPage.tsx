@@ -44,33 +44,27 @@ export default function AutoIntegrationPage() {
       setPlData(initialPlData.map((d) => ({ ...d })));
       setFetched(true);
       setLoading(false);
-      addToast("success", "Data fetched successfully");
+      addToast("success", t("toast.dataFetched"));
     }, 1500);
   };
 
   // Compute delta based on mode: compare Core vs Amaranth under the same calculation
-  function computeBsDelta(e: BSIntegrationEntry): number {
-    if (method === "gross") return (e.corePeriodDr - e.amaranthPeriodDr) - (e.corePeriodCr - e.amaranthPeriodCr);
-    if (method === "net") return e.coreClosingBalance - e.amaranthClosingBalance;
-    // netOfGross
-    return (e.corePeriodDr - e.corePeriodCr) - (e.amaranthPeriodDr - e.amaranthPeriodCr);
-  }
-
-  function computePlDelta(e: PLIntegrationEntry): number {
-    if (method === "gross") return (e.corePeriodDr - e.amaranthPeriodDr) - (e.corePeriodCr - e.amaranthPeriodCr);
-    if (method === "net") return e.coreClosingBalance - e.amaranthClosingBalance;
+  function computeDelta(m: typeof method, e: { corePeriodDr: number; corePeriodCr: number; coreClosingBalance: number; amaranthPeriodDr: number; amaranthPeriodCr: number; amaranthClosingBalance: number }): number {
+    if (m === "gross") return (e.corePeriodDr - e.amaranthPeriodDr) - (e.corePeriodCr - e.amaranthPeriodCr);
+    if (m === "net") return e.coreClosingBalance - e.amaranthClosingBalance;
     return (e.corePeriodDr - e.corePeriodCr) - (e.amaranthPeriodDr - e.amaranthPeriodCr);
   }
 
   const displayBsData = useMemo(() => {
     if (method === "gross") {
       return bsData.map((e): BSIntegrationEntry => {
-        const deltaKrw = computeBsDelta(e);
+        const deltaKrw = computeDelta(method, e);
         const { drCr } = calculateDrCr(e.accountNature, deltaKrw, true);
         return { ...e, deltaKrw, drCr };
       });
     }
 
+    // Net / Net of Gross: group entries by account+vendor+currency into single rows
     const groups = new Map<string, BSIntegrationEntry[]>();
     bsData.forEach((entry) => {
       const key = `${entry.amaranthCode}|${entry.vendorCode}|${entry.currency}`;
@@ -98,7 +92,7 @@ export default function AutoIntegrationPage() {
         accountNature: first.accountNature,
         selected: entries.every((e) => e.selected),
       };
-      const deltaKrw = computeBsDelta(agg);
+      const deltaKrw = computeDelta(method, agg);
       const { drCr } = calculateDrCr(agg.accountNature, deltaKrw, true);
       return { ...agg, deltaKrw, drCr };
     });
@@ -107,12 +101,13 @@ export default function AutoIntegrationPage() {
   const displayPlData = useMemo(() => {
     if (method === "gross") {
       return plData.map((e): PLIntegrationEntry => {
-        const deltaKrw = computePlDelta(e);
+        const deltaKrw = computeDelta(method, e);
         const { drCr } = calculateDrCr(e.accountNature, deltaKrw, false);
         return { ...e, deltaKrw, drCr };
       });
     }
 
+    // Net / Net of Gross: group entries by account+dept into single rows
     const groups = new Map<string, PLIntegrationEntry[]>();
     plData.forEach((entry) => {
       const key = `${entry.amaranthCode}|${entry.deptCode}`;
@@ -139,7 +134,7 @@ export default function AutoIntegrationPage() {
         accountNature: first.accountNature,
         selected: entries.every((e) => e.selected),
       };
-      const deltaKrw = computePlDelta(agg);
+      const deltaKrw = computeDelta(method, agg);
       const { drCr } = calculateDrCr(agg.accountNature, deltaKrw, false);
       return { ...agg, deltaKrw, drCr };
     });
@@ -235,7 +230,7 @@ export default function AutoIntegrationPage() {
     setTimeout(() => {
       setLoading(false);
       setModalMode("success");
-      addToast("success", "Integration executed successfully");
+      addToast("success", t("toast.integrationExecuted"));
     }, 1500);
   };
 
@@ -291,7 +286,7 @@ export default function AutoIntegrationPage() {
             {/* Date picker */}
             {(activeTab === "bs" || activeTab === "all") && (
               <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.balanceDate")}</label>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{t(activeTab === "all" ? "label.bsBalanceDate" : "label.balanceDate")}</label>
                 <input
                   type="date"
                   value={bsDate}
@@ -303,7 +298,7 @@ export default function AutoIntegrationPage() {
             {(activeTab === "pl" || activeTab === "all") && (
               <div className="flex gap-2 items-end">
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.periodFrom")}</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t(activeTab === "all" ? "label.plPeriodFrom" : "label.periodFrom")}</label>
                   <input
                     type="date"
                     value={plDateFrom}
@@ -312,7 +307,7 @@ export default function AutoIntegrationPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">{t("label.periodTo")}</label>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">{t(activeTab === "all" ? "label.plPeriodTo" : "label.periodTo")}</label>
                   <input
                     type="date"
                     value={plDateTo}
@@ -383,7 +378,7 @@ export default function AutoIntegrationPage() {
         {loading && !fetched && (
           <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
             <Loader2 size={32} className="animate-spin mx-auto text-blue-500 mb-3" />
-            <p className="text-sm text-slate-500">Fetching integration data...</p>
+            <p className="text-sm text-slate-500">{t("msg.fetchingIntegrationData")}</p>
           </div>
         )}
 
@@ -405,11 +400,13 @@ export default function AutoIntegrationPage() {
               />
             )}
 
+            <p className="text-xs text-slate-400 mt-1">{t("msg.krwRoundingNote")}</p>
+
             {/* Execute button */}
             <div className="bg-white rounded-lg border border-slate-200 p-4 flex items-center justify-between">
               <div className="text-sm text-slate-500">
-                <span className="font-medium text-slate-700">Executor:</span> yeshwant |{" "}
-                <span className="font-medium text-slate-700">Timestamp:</span>{" "}
+                <span className="font-medium text-slate-700">{t("label.executor")}:</span> yeshwant |{" "}
+                <span className="font-medium text-slate-700">{t("label.timestamp")}:</span>{" "}
                 {new Date().toISOString().replace("T", " ").substring(0, 19)}
               </div>
               <button

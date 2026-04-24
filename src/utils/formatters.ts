@@ -2,6 +2,13 @@ export function formatKRW(amount: number): string {
   return Math.round(amount).toLocaleString("en-US");
 }
 
+export function formatKRWDecimal(amount: number): string {
+  return amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export function formatFCY(amount: number): string {
   return amount.toLocaleString("en-US", {
     minimumFractionDigits: 2,
